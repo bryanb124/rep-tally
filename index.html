@@ -52,6 +52,8 @@
   .goal { background: none; padding: 0; text-align: right; white-space: nowrap; flex: none; }
   .total { font-size: 52px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; transition: color .3s; }
   .unit { font-size: 14px; color: var(--dim); margin-left: 4px; }
+  .alltime { display: block; font-size: 12px; font-weight: 600; color: var(--dim); opacity: .8; margin-top: 3px; font-variant-numeric: tabular-nums; }
+  body.compact .alltime { font-size: 11px; margin-top: 1px; }
   .lo .total { color: var(--red); } .mid .total { color: var(--amber); } .hit .total { color: var(--green); }
   .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; display: none; }
   .bar i { display: block; height: 100%; width: 0; border-radius: 3px; transition: width .3s, background .3s; }
@@ -485,7 +487,7 @@
       const sets = el('button', 'sets'); sets.dataset.ex = ev.id; sets.setAttribute('aria-label', 'Sets; tap to change max per set');
       name.append(sets);
       const goal = el('button', 'goal'); goal.dataset.ex = ev.id; goal.setAttribute('aria-label', 'Set daily goal');
-      goal.append(el('span', 'total', '0'), el('span', 'unit', 'today'));
+      goal.append(el('span', 'total', '0'), el('span', 'unit', 'today'), el('span', 'alltime'));
       top.append(name, goal);
       const bar = el('div', 'bar'); bar.append(el('i'));
       const row = el('div', 'row');
@@ -544,6 +546,8 @@
     const byDay = {};
     for (const e of log) { (byDay[e.d] ??= {})[e.ex] = ((byDay[e.d] || {})[e.ex] || 0) + e.n; }
     lastByDay = byDay;
+    const allTime = {};
+    for (const e of log) allTime[e.ex] = (allTime[e.ex] || 0) + e.n;
     const t = byDay[today] || {};
 
     for (const ev of events) {
@@ -551,6 +555,7 @@
       if (!sec) continue;
       const g = goalFor(ev.id), n = t[ev.id] || 0;
       sec.querySelector('.total').textContent = n;
+      sec.querySelector('.alltime').textContent = (allTime[ev.id] || 0).toLocaleString() + ' all-time';
       const setsEl = sec.querySelector('.sets');
       setsEl.textContent = '';
       if (g) {
