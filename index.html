@@ -210,6 +210,8 @@
   #gdlg .seg { display: flex; background: var(--bg); border-radius: 10px; padding: 3px; gap: 2px; }
   #gdlg .seg button { padding: 8px 9px; border-radius: 8px; font-size: 14px; font-weight: 700; color: var(--dim); background: transparent; }
   #gdlg .seg button[aria-pressed="true"] { background: var(--line); color: var(--text); }
+  #gdlg .gl.stack { flex-direction: column; align-items: stretch; gap: 6px; }
+  #gdlg .gl.stack .seg button { flex: 1; }
   #gdlg .off { opacity: .35; pointer-events: none; }
   #g-preview { margin-top: 14px; font-size: 14px; color: var(--dim); line-height: 1.4; min-height: 40px; }
   #g-preview b { color: var(--text); }
@@ -271,13 +273,14 @@
 
   <dialog id="gdlg">
     <div id="g-title" style="font-weight:700;font-size:18px"></div>
-    <label class="gl">Today's goal<input id="g-n" type="number" inputmode="numeric" pattern="[0-9]*" min="1" max="100000"></label>
-    <div class="gl">Increase by
+    <div class="gl">Goal per<div class="seg" id="g-per"><button data-v="day">Day</button><button data-v="week">Week</button></div></div>
+    <label class="gl"><span id="g-n-label">Today's goal</span><input id="g-n" type="number" inputmode="numeric" pattern="[0-9]*" min="1" max="100000"></label>
+    <div class="gl stack">Grows<div class="seg" id="g-every"><button data-v="never">Fixed</button><button data-v="day">Daily</button><button data-v="week">Weekly</button><button data-v="month">Monthly</button></div></div>
+    <div class="gl" id="g-step-row">Increase by
       <div class="stepper"><button data-d="-1" aria-label="Less">−</button><input id="g-step" type="number" inputmode="numeric" min="1" max="1000"><button data-d="1" aria-label="More">+</button></div>
     </div>
-    <div class="gl">Every<div class="seg" id="g-every"><button data-v="day">Day</button><button data-v="week">Week</button><button data-v="month">Month</button><button data-v="never">Never</button></div></div>
     <label class="gl" id="g-cap-row">Stop at<input id="g-cap" type="number" inputmode="numeric" pattern="[0-9]*" min="1" placeholder="no limit"></label>
-    <div class="gl" id="g-wait-row">If I miss<div class="seg" id="g-wait"><button data-v="0">Keep climbing</button><button data-v="1">Wait for me</button></div></div>
+    <div class="gl stack" id="g-wait-row">If I miss<div class="seg" id="g-wait"><button data-v="0">Keep climbing</button><button data-v="1">Wait for me</button></div></div>
     <div id="g-preview"></div>
     <div class="gbtns"><button id="g-clear">Clear</button><button id="g-cancel">Cancel</button><button class="ok" id="g-save">Save</button></div>
   </dialog>
@@ -370,7 +373,7 @@
     const step = Number.isInteger(g.step) && g.step >= 1 && g.step <= 1000 ? g.step : 1;
     const every = EVERY.includes(g.every) ? g.every : 'day';
     const cap = Number.isInteger(g.cap) && g.cap > 0 && g.cap <= 100000 ? g.cap : 0;
-    return { d: g.d, n: g.n, step, every, cap, wait: g.wait === true };
+    return { d: g.d, n: g.n, step, every, cap, wait: g.wait === true, per: g.per === 'week' ? 'week' : 'day' };
   }
   function cleanDayGoals(v) {
     const out = {};
@@ -408,6 +411,14 @@
     return r ? `${h.toLocaleString()}h ${r}m` : `${h.toLocaleString()} hr`;
   }
   function goalFor(id, day = dayKey()) { return goalValue(goals[id], id, day); }
+  // Weekly goals (per: 'week') count everything from Sunday through the day in question.
+  const isWeekly = id => !!(goals[id] && goals[id].per === 'week');
+  const weekStart = d => shiftDay(d, -weekday(d));
+  function weekSum(id, d, tot) {
+    let sum = 0;
+    for (let x = weekStart(d); x <= d; x = shiftDay(x, 1)) sum += tot ? (tot[x] || 0) : ((lastByDay[x] || {})[id] || 0);
+    return sum;
+  }
 
   // The first day of the period containing `day` (weeks start Sunday; months start on the goal's day-of-month).
   function monthAnniv(base, y, m) {   // base's day-of-month in year y / month m (0-based), clamped to month end
@@ -441,12 +452,18 @@
     const capIt = v => g.cap ? Math.min(v, Math.max(g.cap, g.n)) : v;
     const bs = boundaries(g, day);
     if (!g.wait) return capIt(g.n + g.step * bs.length);
-    // "wait for me": a period only earns its increase if every day in it hit that day's goal
+    // "wait for me": a period only earns its increase if it was fully met —
+    // every day hit that day's goal, or (weekly goals) every full Sun–Sat week inside it hit the weekly goal
     const tot = totalsFor(id);
     let v = g.n, start = g.d;
     for (const b of bs) {
       let ok = true;
-      for (let d = start; d < b; d = shiftDay(d, 1)) if ((tot[d] || 0) < v) { ok = false; break; }
+      if (g.per === 'week') {
+        let w = weekStart(start); if (w < start) w = shiftDay(w, 7);
+        for (; shiftDay(w, 6) < b; w = shiftDay(w, 7)) if (weekSum(id, shiftDay(w, 6), tot) < v) { ok = false; break; }
+      } else {
+        for (let d = start; d < b; d = shiftDay(d, 1)) if ((tot[d] || 0) < v) { ok = false; break; }
+      }
       if (ok) v = capIt(v + g.step);
       start = b;
     }
@@ -454,8 +471,8 @@
   }
   function describeGoal(g) {
     if (!g) return 'No goal';
-    if (g.every === 'never') return 'Stays the same';
-    const per = { day: 'day', week: 'week (Sundays)', month: 'month' }[g.every];
+    if (g.every === 'never') return 'fixed';
+    const per = { day: 'day', week: 'week', month: 'month' }[g.every];
     return `+${g.step} every ${per}` + (g.cap ? `, up to ${g.cap}` : '') + (g.wait ? ', waits if you miss' : '');
   }
   function snapshotToday() {
@@ -576,13 +593,14 @@
     for (const ev of events) {
       const sec = document.querySelector(`.ex[data-ex="${ev.id}"]`);
       if (!sec) continue;
-      const g = goalFor(ev.id), n = t[ev.id] || 0;
+      const g = goalFor(ev.id), dayN = t[ev.id] || 0, weekly = isWeekly(ev.id);
+      const n = weekly ? weekSum(ev.id, today) : dayN;   // weekly goals show the week so far
       sec.querySelector('.total').textContent = n;
-      const at = allTime[ev.id] || 0, mins = ev.unit === 'min';
-      sec.querySelector('.alltime').textContent = (mins ? fmtMinutes(at) : at.toLocaleString()) + ' all-time';
+      const at = allTime[ev.id] || 0, mins = ev.unit === 'min', fmt = x => mins ? fmtMinutes(x) : x.toLocaleString();
+      sec.querySelector('.alltime').textContent = (weekly ? `${fmt(dayN)} today · ` : '') + fmt(at) + ' all-time';
       const setsEl = sec.querySelector('.sets');
       setsEl.textContent = '';
-      if (g && !mins) {
+      if (g && !mins && !weekly) {
         // sets already done (what you actually did), then the rest of the goal re-planned
         const done = setsDone(ev.id, today);
         const plan = splitSets(Math.max(0, g - n), maxSet[ev.id]);
@@ -593,13 +611,13 @@
         });
         setsEl.append(')');
       }
-      sec.querySelector('.minus').disabled = n <= 0;
+      sec.querySelector('.minus').disabled = dayN <= 0;
       sec.classList.remove('lo', 'mid', 'hit', 'has-goal');
       const unit = sec.querySelector('.unit');
       if (g) {
         const pct = n / g;
         sec.classList.add('has-goal', pct >= 1 ? 'hit' : pct >= 0.5 ? 'mid' : 'lo');
-        unit.textContent = `/ ${g}${mins ? ' min' : ''}` + (pct >= 1 ? ' ✓' : '');
+        unit.textContent = `/ ${g}${mins ? ' min' : ''}${weekly ? '/wk' : ''}` + (pct >= 1 ? ' ✓' : '');
         sec.querySelector('.bar i').style.width = Math.min(100, pct * 100) + '%';
       } else unit.textContent = mins ? 'min today' : 'today';
     }
@@ -639,8 +657,8 @@
   function dayDone(d, today) {
     const v = lastByDay[d] || {};
     const withGoal = d === today
-      ? events.map(e => [e.id, goalFor(e.id, d)]).filter(([, g]) => g > 0)
-      : allEvents.map(e => [e.id, goalOn(e.id, d)]).filter(([, g]) => g > 0);
+      ? events.map(e => [e.id, goalFor(e.id, d)]).filter(([id, g]) => g > 0 && !isWeekly(id))
+      : allEvents.map(e => [e.id, goalOn(e.id, d)]).filter(([id, g]) => g > 0 && !isWeekly(id));
     if (withGoal.length) return withGoal.every(([id, g]) => (v[id] || 0) >= g);
     return Object.values(v).some(n => n > 0);
   }
@@ -669,8 +687,8 @@
     grid.classList.toggle('nums', events.length <= 2);   // numbers fit inside the halves
     grid.classList.toggle('boxed', events.length >= 3);
   }
-  function stripe(ev, n, goal) {
-    const s = el('span', 'h ' + (n <= 0 ? 'none' : !goal ? '' : n >= goal ? 'hit' : n >= goal / 2 ? 'mid' : 'lo'), n);
+  function stripe(ev, n, goal, cmp = n) {   // cmp: what's measured against the goal (week-to-date for weekly goals)
+    const s = el('span', 'h ' + (n <= 0 ? 'none' : !goal ? '' : cmp >= goal ? 'hit' : cmp >= goal / 2 ? 'mid' : 'lo'), n);
     if (n > 0 && !goal) s.style.background = ev.color;
     return s;
   }
@@ -678,7 +696,10 @@
     const v = lastByDay[d] || {};
     const b = el('button', 'day k' + events.length + (d === today ? ' today' : ''));
     b.dataset.d = d;
-    for (const ev of events) b.append(stripe(ev, v[ev.id] || 0, goalOn(ev.id, d)));
+    for (const ev of events) {
+      const n = v[ev.id] || 0, g = goalOn(ev.id, d);
+      b.append(stripe(ev, n, g, isWeekly(ev.id) && n > 0 ? weekSum(ev.id, d) : n));
+    }
     b.append(el('span', 'dn', Number(d.slice(8))));
     b.setAttribute('aria-label', pretty(d) + ': ' + events.map(ev => `${v[ev.id] || 0} ${ev.name}`).join(', '));
     return b;
@@ -716,8 +737,9 @@
       for (const ev of list) {
         const r = el('div', 'pr' + (ev.archived ? ' gone' : '')), dot = el('i'); dot.style.background = ev.color;
         const n = v[ev.id] || 0, g = goalOn(ev.id, d), em = el('em', null, n);
-        if (g) em.append(el('small', null, ' / ' + g));
         if (ev.unit === 'min') em.append(el('small', null, ' min'));
+        if (g && isWeekly(ev.id)) em.append(el('small', null, ` · wk ${weekSum(ev.id, d)}/${g}`));
+        else if (g) em.append(el('small', null, ' / ' + g));
         r.append(dot, el('span', null, ev.name), em); rows.append(r);
       }
       pk.classList.add('show');
@@ -947,22 +969,21 @@
   function setSeg(id, v) { for (const b of $(id).querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.v === v)); }
   function sheetGoal() {   // the goal as currently entered, starting today
     const n = parseInt($('g-n').value, 10), step = parseInt($('g-step').value, 10), cap = parseInt($('g-cap').value, 10);
-    return cleanGoal({ d: dayKey(), n, step: step || 1, every: segVal('g-every'), cap: cap || 0, wait: segVal('g-wait') === '1' });
+    return cleanGoal({ d: dayKey(), n, step: step || 1, every: segVal('g-every'), cap: cap || 0, wait: segVal('g-wait') === '1', per: segVal('g-per') });
   }
   function previewGoal() {
-    const g = sheetGoal(), pv = $('g-preview'), every = segVal('g-every');
-    $('g-cap-row').classList.toggle('off', every === 'never');
-    $('g-wait-row').classList.toggle('off', every === 'never');
-    $('g-step').closest('.gl').classList.toggle('off', every === 'never');
+    const g = sheetGoal(), pv = $('g-preview'), every = segVal('g-every'), wk = segVal('g-per') === 'week';
+    $('g-n-label').textContent = wk ? "This week's goal" : "Today's goal";
+    for (const r of ['g-cap-row', 'g-wait-row', 'g-step-row']) $(r).classList.toggle('off', every === 'never');
     pv.textContent = '';
-    if (!g) { pv.textContent = 'Enter today\'s goal.'; return; }
-    if (g.every === 'never' || (g.cap && g.n >= g.cap)) { pv.append('Stays at ', el('b', null, g.n), ' every day.'); return; }
+    if (!g) { pv.textContent = wk ? 'Enter this week\'s goal.' : 'Enter today\'s goal.'; return; }
+    if (g.every === 'never' || (g.cap && g.n >= g.cap)) { pv.append('Stays at ', el('b', null, g.n), wk ? ' every week.' : ' every day.'); return; }
     const today = dayKey(), plain = { ...g, wait: false };
     const nextDay = boundaries(plain, shiftDay(today, 40))[0];
     const at = (days) => goalValue(plain, gEx, shiftDay(today, days));
     pv.append('Next: ', el('b', null, goalValue(plain, gEx, nextDay)), ' on ' + pretty(nextDay) + '. In 3 months: ', el('b', null, at(91)),
               ', in a year: ', el('b', null, at(365)), '.');
-    if (g.wait) pv.append(' (If you hit every day. Misses pause it.)');
+    if (g.wait) pv.append(wk ? ' (If you hit every week. Missed weeks pause it.)' : ' (If you hit every day. Misses pause it.)');
   }
   function openGoal(id) {
     gEx = id;
@@ -971,14 +992,15 @@
     $('g-n').value = today || '';
     $('g-step').value = g ? g.step : 1;
     $('g-cap').value = g && g.cap ? g.cap : '';
-    setSeg('g-every', g ? g.every : 'day');
+    setSeg('g-every', g ? g.every : 'never');
+    setSeg('g-per', g ? g.per : (isMin(id) ? 'week' : 'day'));
     setSeg('g-wait', g && g.wait ? '1' : '0');
     $('g-clear').disabled = !g;
     previewGoal();
     $('gdlg').showModal();
     if (!today) setTimeout(() => $('g-n').focus(), 50);
   }
-  for (const id of ['g-every', 'g-wait']) $(id).addEventListener('click', e => {
+  for (const id of ['g-every', 'g-wait', 'g-per']) $(id).addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     setSeg(id, b.dataset.v); previewGoal();
   });
@@ -1000,7 +1022,7 @@
     $('gdlg').close();
     if (!isActive(gEx)) return;
     goals[gEx] = g; saveGoals(); render();
-    toast(`${nameOf(gEx)}: ${g.n} · ${describeGoal(g)}`);
+    toast(`${nameOf(gEx)}: ${amount(gEx, g.n)} a ${g.per} · ${describeGoal(g)}`);
   };
   $('dlg-ok').onclick = () => {
     const n = parseInt($('dlg-input').value, 10);
