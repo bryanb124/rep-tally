@@ -1,0 +1,844 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Reps">
+<meta name="theme-color" content="#111418">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<title>Reps</title>
+<style>
+  :root {
+    --bg: #111418; --card: #1b2027; --line: #2a313b; --text: #f2f4f7; --dim: #8b95a3;
+    --red: #ff5d6c; --amber: #ffb020; --green: #4ade80;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Rounded", system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; height: 100dvh; overflow: hidden;
+    padding: calc(env(safe-area-inset-top) + 10px) 14px calc(env(safe-area-inset-bottom) + 10px); gap: 10px;
+    user-select: none; -webkit-user-select: none; }
+  header { display: flex; align-items: center; justify-content: space-between; flex: none; }
+  header { gap: 8px; }
+  header h1 { font-size: 15px; font-weight: 600; color: var(--dim); margin: 0; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action: manipulation; }
+  #undo { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; font-size: 15px; font-weight: 600; white-space: nowrap; }
+  #undo:disabled { opacity: .35; }
+  .hl, .hr { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  #streak { background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; font-size: 15px; font-weight: 800; flex: none;
+    font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #streak.zero { color: var(--dim); font-weight: 600; }
+  #bk-nudge { background: transparent; border: 1.5px solid var(--amber); color: var(--amber); border-radius: 12px; padding: 9px 10px;
+    font-size: 14px; font-weight: 700; white-space: nowrap; }
+  .hr { flex: none; }
+
+  /* ---- event cards ---- */
+  #events { display: flex; flex-direction: column; gap: 10px; flex: 0 1 auto; min-height: 0; overflow-y: auto;
+    -webkit-overflow-scrolling: touch; border-radius: 20px; }
+  .ex { background: var(--card); border-radius: 20px; padding: 14px; display: flex; flex-direction: column; gap: 10px; flex: none; }
+  .top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .name { font-size: 18px; font-weight: 700; display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .sets { background: none; padding: 4px 0; font-size: 15px; font-weight: 600; color: var(--dim); white-space: nowrap; font-variant-numeric: tabular-nums; flex: none; }
+  .sets .s.done { opacity: .35; text-decoration: line-through; }
+  .sets .s.next { color: var(--text); }
+  .goal { background: none; padding: 0; text-align: right; white-space: nowrap; flex: none; }
+  .total { font-size: 52px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; transition: color .3s; }
+  .unit { font-size: 14px; color: var(--dim); margin-left: 4px; }
+  .lo .total { color: var(--red); } .mid .total { color: var(--amber); } .hit .total { color: var(--green); }
+  .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; display: none; }
+  .bar i { display: block; height: 100%; width: 0; border-radius: 3px; transition: width .3s, background .3s; }
+  .has-goal .bar { display: block; }
+  .lo .bar i { background: var(--red); } .mid .bar i { background: var(--amber); } .hit .bar i { background: var(--green); }
+  .row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; }
+  .add { border-radius: 14px; min-height: 60px; font-size: 22px; font-weight: 800; color: #111; background: var(--c); }
+  .add:active { transform: scale(.96); filter: brightness(1.1); }
+  .add.minus { background: transparent; color: var(--text); border: 2px solid var(--line); }
+  .add.minus:disabled { opacity: .3; }
+
+  /* 3+ events: smaller cards so more fit */
+  body.compact #events { gap: 8px; }
+  body.compact .ex { padding: 10px 12px; gap: 7px; border-radius: 16px; }
+  body.compact .top { align-items: center; }
+  body.compact .name { font-size: 16px; }
+  body.compact .sets { font-size: 13px; padding: 2px 0; }
+  body.compact .total { font-size: 30px; }
+  body.compact .unit { font-size: 12px; }
+  body.compact .bar { height: 4px; }
+  body.compact .row { gap: 6px; }
+  body.compact .add { min-height: 44px; font-size: 17px; border-radius: 11px; }
+  body.compact #history { min-height: max(42vh, 260px); }
+
+  /* ---- history ---- */
+  #history { flex: 1 1 0; min-height: 230px; background: var(--card); border-radius: 20px; padding: 10px 14px 12px;
+    display: flex; flex-direction: column; gap: 8px; }
+  .hhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 34px; flex: none; }
+  .hhead h2 { font-size: 13px; color: var(--dim); font-weight: 600; margin: 0; text-transform: uppercase; letter-spacing: .06em; }
+  .hhead.has-cap h2 { display: none; }
+  .cap { font-size: 14px; color: var(--dim); flex: 1; text-align: left; line-height: 1.25;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .cap b { color: var(--text); }
+  .cap .k { color: var(--text); font-weight: 600; }
+  #more-btn { background: var(--line); border-radius: 10px; padding: 8px 12px; font-size: 14px; font-weight: 600; white-space: nowrap; }
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+  .wk { font-size: 11px; font-weight: 600; color: var(--dim); text-align: center; align-self: end; }
+  .pad { visibility: hidden; }
+  .gwrap { flex: 1; min-height: 0; display: flex; justify-content: center; align-items: center; container-type: size; }
+  #grid30 { width: min(100cqw, 100cqh * 7 / 5.5); aspect-ratio: 7 / 5.5; grid-template-rows: auto repeat(5, 1fr); }
+  /* each date box is a small grid: one cell per event, filled left to right, top to bottom */
+  .day { position: relative; display: grid; grid-template-columns: repeat(6, 1fr); grid-auto-rows: 1fr; gap: 2px;
+    border-radius: 9px; overflow: hidden; padding: 0; background: var(--card); min-height: 0; }
+  .day .h { grid-column: span 6; min-height: 0; min-width: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800;
+    color: transparent; font-variant-numeric: tabular-nums; transition: color .15s; line-height: 1; overflow: hidden; }
+  .k3 .h:nth-child(-n+2), .k4 .h, .k5 .h:nth-child(-n+4) { grid-column: span 3; }   /* 2 across */
+  .k6 .h, .k7 .h:nth-child(-n+6), .k8 .h:nth-child(-n+6), .k9 .h { grid-column: span 2; }  /* 3 across */
+  .k8 .h:nth-child(n+7) { grid-column: span 3; }
+  .k6, .k7, .k8, .k9 { gap: 1.5px; }
+  .boxed .day .dn { color: #fff; top: 2px; left: 3px; font-size: 10px; font-weight: 700;
+    text-shadow: 0 0 2px #000, 0 0 2px #000, 0 0 1px #000; }
+  .nums .day.show .h { color: #111; } .nums .day.show .h.none { color: var(--dim); }
+  .day .dn { position: absolute; top: 3px; left: 5px; font-size: 10px; font-weight: 600; color: rgba(0,0,0,.5); pointer-events: none; }
+  .nums .day.show .dn { opacity: 0; }
+  .day.today { outline: 2px solid var(--text); outline-offset: 1px; }
+  .day.show { outline: 2px solid var(--text); outline-offset: 1px; }
+  .day.future { visibility: hidden; }
+  .h.none { background: #262c35; }
+  .h.lo { background: var(--red); } .h.mid { background: var(--amber); } .h.hit { background: var(--green); }
+  #history, #more { position: relative; }
+  .peek { position: absolute; left: 14px; right: 14px; top: 48px; z-index: 5; background: #252b34; border: 1px solid var(--line);
+    border-radius: 14px; padding: 10px 12px; box-shadow: 0 8px 24px rgba(0,0,0,.4); display: none; }
+  .peek.show { display: block; }
+  .peek b { display: block; margin-bottom: 6px; }
+  .peek .rows { display: grid; grid-template-columns: 1fr; column-gap: 14px; }
+  .peek.two .rows { grid-template-columns: 1fr 1fr; }
+  .peek .pr { display: flex; align-items: center; gap: 8px; font-size: 15px; padding: 2px 0; min-width: 0; }
+  .peek.two .pr { font-size: 14px; gap: 6px; }
+  .peek .pr i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .peek .pr span { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .peek .pr em { font-style: normal; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .peek .pr em small { color: var(--dim); font-weight: 500; }
+  .peek .pr.gone span { color: var(--dim); font-style: italic; }
+  .legend { display: flex; gap: 10px; font-size: 12px; color: var(--dim); white-space: nowrap; justify-content: center; flex: none; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+
+  /* ---- More page ---- */
+  #more { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border: 0; border-radius: 0;
+    padding: calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 12px); }
+  #more[open] { display: flex; flex-direction: column; gap: 10px; }
+  #more-close { background: var(--line); border-radius: 10px; padding: 8px 14px; font-weight: 700; }
+  #more-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 18px; }
+  #more-scroll h3 { margin: 0 0 6px; font-size: 14px; color: var(--dim); font-weight: 600; }
+  #more-list { display: flex; flex-direction: column; gap: 14px; }
+  #more-list .day { aspect-ratio: 1; }
+  .evedit { background: var(--bg); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .evrow { display: flex; align-items: center; gap: 8px; }
+  .evrow .dot { width: 14px; height: 14px; border-radius: 4px; flex: none; }
+  .evrow input { font: inherit; font-size: 16px; color: var(--text); background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px; min-width: 0; -webkit-user-select: text; user-select: text; }
+  .evrow .evname { flex: 1; font-weight: 600; }
+  .evrow label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--dim); flex: none; }
+  .evrow .evmax { width: 58px; text-align: center; }
+  .evrow .evdel { width: 36px; height: 40px; border-radius: 10px; background: var(--card); color: var(--dim); font-size: 17px; flex: none; }
+  .evrow .mv { display: flex; flex-direction: column; gap: 2px; flex: none; }
+  .evrow .mv button { width: 30px; height: 19px; border-radius: 6px; background: var(--card); color: var(--text); font-size: 10px; line-height: 1; }
+  .evrow .mv button:disabled { opacity: .25; }
+  .evrow .evmax { width: 54px; padding: 10px 4px; text-align: center; }
+  .evrow label { gap: 4px; }
+  #ev-arch { display: flex; flex-direction: column; gap: 6px; }
+  #ev-arch h4 { margin: 6px 0 0; font-size: 13px; color: var(--dim); font-weight: 600; }
+  .evrow.gone .gname { flex: 1; color: var(--dim); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .evrow.gone .gname small { font-weight: 400; }
+  .evrow.gone button { border-radius: 10px; padding: 9px 12px; font-size: 14px; font-weight: 700; background: var(--card); }
+  .evrow.gone .erase { color: var(--red); }
+  #deldlg p { color: var(--dim); font-size: 15px; margin: 8px 0 14px; line-height: 1.35; }
+  #deldlg .col { display: flex; flex-direction: column; gap: 8px; }
+  #deldlg button { min-height: 50px; border-radius: 12px; font-size: 16px; font-weight: 700; background: var(--line); }
+  #deldlg .keep { background: var(--text); color: var(--bg); }
+  #deldlg .erase { background: transparent; border: 1.5px solid var(--red); color: var(--red); }
+  #ev-add { min-height: 46px; border-radius: 12px; background: var(--card); border: 2px dashed var(--line); font-weight: 700; font-size: 16px; }
+  #ev-add:disabled { opacity: .4; }
+  .hint { font-size: 12px; color: var(--dim); margin: 0; }
+  .bk { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex: none; }
+  .bk button { min-height: 50px; border-radius: 12px; font-size: 16px; font-weight: 700; background: var(--line); }
+  .bk .primary { background: var(--text); color: var(--bg); }
+  #bk-status { font-size: 13px; color: var(--dim); text-align: center; flex: none; }
+  #bk-status.warn { color: var(--amber); }
+  .empty { color: var(--dim); padding: 6px 0; font-size: 15px; }
+
+  #toast { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 10px); transform: translateX(-50%) translateY(-20px);
+    background: #2d3540; padding: 10px 18px; border-radius: 999px; font-weight: 600; opacity: 0; transition: .2s; pointer-events: none; z-index: 10; white-space: nowrap; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  dialog { background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 20px; padding: 18px; width: min(90vw, 340px); }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  #dlg input { width: 100%; font-size: 32px; font-weight: 700; text-align: center; padding: 12px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text); margin: 10px 0 14px; }
+  #dlg .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  #dlg .btns button { min-height: 52px; border-radius: 12px; font-size: 18px; font-weight: 700; background: var(--line); }
+  #dlg .btns .ok { background: var(--text); color: var(--bg); }
+  @media (max-height: 720px) {
+    body { gap: 8px; }
+    body:not(.compact) .ex { padding: 12px; gap: 8px; }
+    body:not(.compact) .total { font-size: 44px; }
+    body:not(.compact) .add { min-height: 52px; font-size: 20px; }
+    body:not(.compact) #history { min-height: 210px; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="hl"><h1 id="today"></h1><button id="streak" aria-label="Streak"></button></div>
+    <div class="hr"><button id="bk-nudge" hidden>Back up</button><button id="undo" disabled>↶ Undo</button></div>
+  </header>
+
+  <main id="events"></main>
+
+  <section id="history">
+    <div class="hhead"><h2>Last 5 weeks</h2><span class="cap" id="caption"></span><button id="more-btn">More</button></div>
+    <div class="gwrap"><div class="grid" id="grid30"></div></div>
+    <div class="peek" id="peek"></div>
+    <div class="legend"><span id="legend-txt"></span>
+      <span><i style="background:var(--green)"></i>goal</span><span><i style="background:var(--amber)"></i>½+</span><span><i style="background:var(--red)"></i>&lt;½</span></div>
+  </section>
+
+  <dialog id="more">
+    <div class="hhead"><h2>More</h2><span class="cap" id="caption2"></span><button id="more-close">Done</button></div>
+    <div id="more-scroll">
+      <div class="evedit">
+        <h3>Events</h3>
+        <div id="ev-list"></div>
+        <button id="ev-add">+ Add event</button>
+        <div id="ev-arch" hidden></div>
+        <p class="hint">Tap a name to rename it. ▲▼ change the order. "Max" is the most you want to do in one set. Up to 9 events. Removing an event keeps its history unless you choose to erase it.</p>
+      </div>
+      <div><h3>History</h3><div id="more-list"></div></div>
+    </div>
+    <div class="peek" id="peek2" style="top:60px"></div>
+    <div id="bk-status"></div>
+    <div class="bk"><button class="primary" id="bk-save">Back up to iCloud</button><button id="bk-load">Restore</button></div>
+    <input type="file" id="bk-file" accept="application/json,.json" hidden>
+  </dialog>
+
+  <dialog id="deldlg">
+    <div id="del-title" style="font-weight:700;font-size:18px"></div>
+    <p>It disappears from your main screen. Its history stays on the calendar's day details, and you can restore it from the More page.</p>
+    <div class="col">
+      <button class="keep" id="del-keep">Remove, keep history</button>
+      <button class="erase" id="del-erase">Remove and erase history</button>
+      <button id="del-cancel">Cancel</button>
+    </div>
+  </dialog>
+
+  <dialog id="dlg">
+    <div id="dlg-title" style="font-weight:700;font-size:18px"></div>
+    <input id="dlg-input" type="number" inputmode="numeric" pattern="[0-9]*" min="0">
+    <div class="btns"><button id="dlg-cancel">Cancel</button><button class="ok" id="dlg-ok">OK</button></div>
+  </dialog>
+
+  <div id="toast"></div>
+
+<script>
+(() => {
+  // All data lives only on this phone (localStorage). Nothing is ever sent anywhere.
+  const $ = id => document.getElementById(id);
+  const MAX_EVENTS = 9;
+  const PALETTE = ['#ff7a45', '#3ec7a0', '#5b9dff', '#c084fc', '#f472b6', '#facc15', '#22d3ee', '#a3e635', '#fb923c'];
+  const ID_RE = /^[a-z0-9_-]{1,30}$/i, DAY_RE = /^\d{4}-\d\d-\d\d$/;
+  const okDay = d => typeof d === 'string' && DAY_RE.test(d);
+  const okColor = c => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c);
+
+  function read(key, fallback) { try { const v = JSON.parse(localStorage.getItem(key)); return v ?? fallback; } catch { return fallback; } }
+  function write(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch {} }
+
+  function dayKey(date = new Date()) {
+    const p = n => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`;
+  }
+  function shiftDay(key, n) { const [y, m, d] = key.split('-').map(Number); return dayKey(new Date(y, m - 1, d + n)); }
+  function weekday(key) { const [y, m, d] = key.split('-').map(Number); return new Date(y, m - 1, d).getDay(); }
+  function daysBetween(a, b) {
+    const t = k => { const [y, m, d] = k.split('-').map(Number); return Date.UTC(y, m - 1, d); };
+    return Math.round((t(b) - t(a)) / 86400000);
+  }
+  function pretty(key) {
+    const [y, m, d] = key.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  // ---------- data ----------
+  const EKEY = 'rep-tally-events-v1', KEY = 'rep-tally-v1', MKEY = 'rep-tally-maxset-v1',
+        GKEY = 'rep-tally-goals-v1', DGKEY = 'rep-tally-daygoals-v1';
+  const DEFAULT_EVENTS = [{ id: 'push', name: 'Pushups', color: PALETTE[0] }, { id: 'squat', name: 'Squats', color: PALETTE[1] }];
+
+  // Events in display order. A removed event stays in the list with archived: true so its history is kept.
+  function cleanEvents(v) {
+    if (!Array.isArray(v)) return null;
+    const seen = new Set(), out = [];
+    let active = 0;
+    for (const e of v) {
+      if (!e || !ID_RE.test(e.id) || seen.has(e.id) || typeof e.name !== 'string') continue;
+      const name = e.name.trim().slice(0, 20);
+      if (!name) continue;
+      let archived = !!e.archived;
+      if (!archived && active >= MAX_EVENTS) archived = true;
+      if (!archived) active++;
+      seen.add(e.id); out.push({ id: e.id, name, color: okColor(e.color) ? e.color : PALETTE[out.length % PALETTE.length], ...(archived ? { archived: true } : {}) });
+      if (out.length === 40) break;
+    }
+    return active ? out : null;
+  }
+  function cleanLog(v) {
+    return Array.isArray(v) ? v.filter(e => e && ID_RE.test(e.ex) && Number.isInteger(e.n) && Math.abs(e.n) <= 100000 && okDay(e.d))
+      .map(e => ({ d: e.d, ex: e.ex, n: e.n, t: Number(e.t) || 0 })) : [];
+  }
+  function cleanMax(v, evs) {
+    const out = {};
+    for (const e of evs) {
+      const x = v && v[e.id];
+      out[e.id] = Number.isInteger(x) && x > 0 && x <= 1000 ? x : (e.id === 'push' ? 30 : e.id === 'squat' ? 25 : 20);
+    }
+    return out;
+  }
+  function cleanGoals(v, evs) {
+    const out = {};
+    for (const e of evs) {
+      const g = v && v[e.id];
+      if (Number.isInteger(g) && g > 0) out[e.id] = { d: dayKey(), n: g }; // older format
+      else if (g && Number.isInteger(g.n) && g.n > 0 && g.n <= 100000 && okDay(g.d)) out[e.id] = { d: g.d, n: g.n };
+      else out[e.id] = null;
+    }
+    return out;
+  }
+  function cleanDayGoals(v) {
+    const out = {};
+    if (v && typeof v === 'object') for (const [d, g] of Object.entries(v)) {
+      if (!okDay(d) || !g || typeof g !== 'object') continue;
+      const row = {};
+      for (const [id, n] of Object.entries(g)) if (ID_RE.test(id) && Number.isInteger(n) && n >= 0) row[id] = n;
+      out[d] = row;
+    }
+    return out;
+  }
+
+  let allEvents = cleanEvents(read(EKEY, null)) || DEFAULT_EVENTS.map(e => ({ ...e }));
+  let events = [];                                          // the active (not removed) events, in order
+  const syncEvents = () => { events = allEvents.filter(e => !e.archived); };
+  syncEvents();
+  let log = cleanLog(read(KEY, []));
+  let maxSet = cleanMax(read(MKEY, {}), allEvents);
+  let goals = cleanGoals(read(GKEY, {}), allEvents);       // {id: {d, n}|null} goal grows by 1 per day after d
+  let dayGoals = cleanDayGoals(read(DGKEY, {}));           // {day: {id: goal that day}}
+
+  const saveEvents = () => write(EKEY, allEvents), save = () => write(KEY, log), saveMax = () => write(MKEY, maxSet),
+        saveGoals = () => write(GKEY, goals), saveDayGoals = () => write(DGKEY, dayGoals);
+  saveEvents();
+
+  const evById = id => allEvents.find(e => e.id === id);
+  const isActive = id => events.some(e => e.id === id);
+  const nameOf = id => (evById(id) || { name: '?' }).name;
+  function goalFor(id, day = dayKey()) {
+    const g = goals[id];
+    return g ? g.n + Math.max(0, daysBetween(g.d, day)) : 0;
+  }
+  function snapshotToday() {
+    const d = dayKey(), cur = {};
+    for (const e of events) cur[e.id] = goalFor(e.id, d);
+    if (JSON.stringify(dayGoals[d] || {}) !== JSON.stringify(cur)) { dayGoals[d] = cur; saveDayGoals(); }
+  }
+  const goalOn = (id, d) => (dayGoals[d] && Number.isInteger(dayGoals[d][id])) ? dayGoals[d][id] : 0;
+
+
+  // Fewest sets that stay at or under the max, sized as evenly as possible,
+  // preferring round numbers (multiples of 5). Always adds up to the goal exactly.
+  // e.g. 61 with max 30 -> 21+20+20, 55 with max 30 -> 30+25, 55 with max 25 -> 20+20+15
+  function splitSets(goal, max) {
+    if (goal <= 0) return [];
+    const k = Math.ceil(goal / max);
+    const score = sets => (Math.max(...sets) - Math.min(...sets)) + 2.5 * sets.filter(x => x % 5).length;
+    const base = Math.floor(goal / k), extra = goal % k;
+    let best = Array.from({ length: k }, (_, i) => base + (i < extra ? 1 : 0)), bestScore = score(best);
+    for (let q = 5; q <= max; q += 5) {
+      for (let m = 1; m <= k - 1; m++) {
+        const round = [...Array(m).fill(q), ...Array(k - 1 - m).fill(q - 5)];
+        if (round.some(x => x < 1)) continue;
+        const rest = goal - round.reduce((a, b) => a + b, 0);
+        if (rest < 1 || rest > max) continue;
+        const sets = [...round, rest], sc = score(sets);
+        if (sc < bestScore) { best = sets; bestScore = sc; }
+      }
+    }
+    return best.sort((a, b) => b - a);
+  }
+
+  // ---------- small UI helpers ----------
+  let toastTimer;
+  function toast(msg) {
+    const t = $('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1400);
+  }
+  const el = (tag, cls, text) => { const x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; };
+
+  // ---------- event cards ----------
+  function buildCards() {
+    const wrap = $('events');
+    wrap.textContent = '';
+    document.body.classList.toggle('compact', events.length >= 3);
+    for (const ev of events) {
+      const sec = el('section', 'ex'); sec.dataset.ex = ev.id; sec.style.setProperty('--c', ev.color);
+      const top = el('div', 'top');
+      const name = el('span', 'name'); name.append(el('span', 'nm', ev.name));
+      const sets = el('button', 'sets'); sets.dataset.ex = ev.id; sets.setAttribute('aria-label', 'Sets; tap to change max per set');
+      name.append(sets);
+      const goal = el('button', 'goal'); goal.dataset.ex = ev.id; goal.setAttribute('aria-label', 'Set daily goal');
+      goal.append(el('span', 'total', '0'), el('span', 'unit', 'today'));
+      top.append(name, goal);
+      const bar = el('div', 'bar'); bar.append(el('i'));
+      const row = el('div', 'row');
+      for (const n of [20, 10, 5, 1]) { const b = el('button', 'add', '+' + n); b.dataset.n = n; row.append(b); }
+      const minus = el('button', 'add minus', '−1'); minus.dataset.n = -1; minus.setAttribute('aria-label', 'Minus 1'); row.append(minus);
+      sec.append(top, bar, row);
+      wrap.append(sec);
+    }
+    const lg = $('legend-txt');
+    lg.textContent = events.length === 2 ? 'Top: ' + events[0].name + ' · Bottom: ' + events[1].name
+                   : events.length > 2 ? 'Boxes follow event order' : '';
+  }
+  $('events').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const id = b.closest('.ex').dataset.ex;
+    if (b.classList.contains('add')) add(id, parseInt(b.dataset.n, 10));
+    else if (b.classList.contains('goal')) openGoal(id);
+    else if (b.classList.contains('sets')) openMax(id);
+  });
+
+  // Taps less than a minute apart count as one set (log each set right after doing it).
+  // A minus tap after a break corrects the previous set instead of starting a new one.
+  const SET_GAP_MS = 60 * 1000;
+  function setsDone(id, day) {
+    const groups = [];
+    let lastT = -Infinity;
+    for (const e of log) {
+      if (e.d !== day || e.ex !== id) continue;
+      if (!groups.length || (e.t - lastT > SET_GAP_MS && e.n > 0)) groups.push(0);
+      groups[groups.length - 1] += e.n;
+      lastT = e.t;
+    }
+    return groups.filter(x => x > 0);
+  }
+  function todayTotal(id) { const d = dayKey(); return log.reduce((s, e) => s + (e.d === d && e.ex === id ? e.n : 0), 0); }
+  function add(id, n) {
+    if (!isActive(id) || !Number.isInteger(n) || n === 0 || Math.abs(n) > 1000) return;
+    if (n < 0 && todayTotal(id) + n < 0) return; // never go below zero
+    log.push({ d: dayKey(), ex: id, n, t: Date.now() });
+    save(); render(); toast(`${n > 0 ? '+' : '−'}${Math.abs(n)} ${nameOf(id).toLowerCase()}`);
+    if (navigator.vibrate) navigator.vibrate(15);
+  }
+  function undo() {
+    const last = log[log.length - 1];
+    if (!last || last.d !== dayKey()) return; // only undo today's taps
+    log.pop();
+    save(); render(); toast(`Undid ${last.n > 0 ? '+' : '−'}${Math.abs(last.n)} ${nameOf(last.ex).toLowerCase()}`);
+  }
+  $('undo').onclick = undo;
+
+  // ---------- render ----------
+  let lastByDay = {};
+  function render() {
+    const today = dayKey();
+    $('today').textContent = new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    const byDay = {};
+    for (const e of log) { (byDay[e.d] ??= {})[e.ex] = ((byDay[e.d] || {})[e.ex] || 0) + e.n; }
+    lastByDay = byDay;
+    const t = byDay[today] || {};
+
+    for (const ev of events) {
+      const sec = document.querySelector(`.ex[data-ex="${ev.id}"]`);
+      if (!sec) continue;
+      const g = goalFor(ev.id), n = t[ev.id] || 0;
+      sec.querySelector('.total').textContent = n;
+      const setsEl = sec.querySelector('.sets');
+      setsEl.textContent = '';
+      if (g) {
+        // sets already done (what you actually did), then the rest of the goal re-planned
+        const done = setsDone(ev.id, today);
+        const plan = splitSets(Math.max(0, g - n), maxSet[ev.id]);
+        setsEl.append('(');
+        [...done.map(r => ['done', r]), ...plan.map((r, i) => [i ? '' : 'next', r])].forEach(([cls, r], i) => {
+          if (i) setsEl.append('+');
+          setsEl.append(el('span', 's ' + cls, r));
+        });
+        setsEl.append(')');
+      }
+      sec.querySelector('.minus').disabled = n <= 0;
+      sec.classList.remove('lo', 'mid', 'hit', 'has-goal');
+      const unit = sec.querySelector('.unit');
+      if (g) {
+        const pct = n / g;
+        sec.classList.add('has-goal', pct >= 1 ? 'hit' : pct >= 0.5 ? 'mid' : 'lo');
+        unit.textContent = pct >= 1 ? `/ ${g} ✓` : `/ ${g}`;
+        sec.querySelector('.bar i').style.width = Math.min(100, pct * 100) + '%';
+      } else unit.textContent = 'today';
+    }
+
+    const undoBtn = $('undo'), last = log[log.length - 1];
+    const canUndo = last && last.d === today;
+    undoBtn.disabled = !canUndo;
+    undoBtn.textContent = canUndo ? `↶ ${last.n > 0 ? '+' : '−'}${Math.abs(last.n)}` : '↶ Undo';
+    undoBtn.setAttribute('aria-label', canUndo ? `Undo ${last.n} ${nameOf(last.ex)}` : 'Undo');
+
+    snapshotToday();
+    renderStreak(today);
+    renderNudge();
+    const g30 = $('grid30');
+    gridMode(g30);
+    g30.textContent = '';
+    weekHeader(g30);
+    const start = gridStart(today);
+    for (let i = 0; i < 35; i++) {
+      const d = shiftDay(start, i), sq = square(d, today);
+      if (d > today) sq.classList.add('future');
+      g30.append(sq);
+    }
+    if ($('more').open) renderMore();
+  }
+
+  // ---------- streak: days in a row where every goal was hit ----------
+  // A day counts if every event with a goal that day reached it (days with no goals count if anything was logged).
+  // Today only joins the streak once it's done, so an unfinished today doesn't break it.
+  function dayDone(d, today) {
+    const v = lastByDay[d] || {};
+    const withGoal = d === today
+      ? events.map(e => [e.id, goalFor(e.id, d)]).filter(([, g]) => g > 0)
+      : allEvents.map(e => [e.id, goalOn(e.id, d)]).filter(([, g]) => g > 0);
+    if (withGoal.length) return withGoal.every(([id, g]) => (v[id] || 0) >= g);
+    return Object.values(v).some(n => n > 0);
+  }
+  let streakInfo = { n: 0, todayDone: false };
+  function renderStreak(today) {
+    const first = Object.keys(lastByDay).sort()[0];
+    const todayDone = dayDone(today, today);
+    let n = todayDone ? 1 : 0;
+    if (first) for (let d = shiftDay(today, -1); d >= first && dayDone(d, today); d = shiftDay(d, -1)) n++;
+    streakInfo = { n, todayDone };
+    const b = $('streak');
+    b.textContent = '🔥 ' + n;
+    b.classList.toggle('zero', n === 0);
+  }
+  $('streak').onclick = () => {
+    const { n, todayDone } = streakInfo;
+    toast(todayDone ? `${n}-day streak, today done ✓` : n ? `${n}-day streak · hit today's goals for ${n + 1}` : "Hit today's goals to start a streak");
+  };
+
+  // ---------- calendar squares ----------
+  const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  // Sunday that starts the week 4 weeks before this one -> 5 full Sunday-Saturday rows ending this week
+  function gridStart(today) { return shiftDay(today, -(weekday(today) + 28)); }
+  function weekHeader(grid) { for (const w of WEEKDAYS) grid.append(el('span', 'wk', w)); }
+  function gridMode(grid) {
+    grid.classList.toggle('nums', events.length <= 2);   // numbers fit inside the halves
+    grid.classList.toggle('boxed', events.length >= 3);
+  }
+  function stripe(ev, n, goal) {
+    const s = el('span', 'h ' + (n <= 0 ? 'none' : !goal ? '' : n >= goal ? 'hit' : n >= goal / 2 ? 'mid' : 'lo'), n);
+    if (n > 0 && !goal) s.style.background = ev.color;
+    return s;
+  }
+  function square(d, today) {
+    const v = lastByDay[d] || {};
+    const b = el('button', 'day k' + events.length + (d === today ? ' today' : ''));
+    b.dataset.d = d;
+    for (const ev of events) b.append(stripe(ev, v[ev.id] || 0, goalOn(ev.id, d)));
+    b.append(el('span', 'dn', Number(d.slice(8))));
+    b.setAttribute('aria-label', pretty(d) + ': ' + events.map(ev => `${v[ev.id] || 0} ${ev.name}`).join(', '));
+    return b;
+  }
+
+  // Tap a square: show its numbers for a few seconds
+  let showTimer, shown;
+  // active events, plus removed ones that have reps on that day
+  const shownOn = v => allEvents.filter(e => !e.archived || (v[e.id] || 0) > 0);
+  function hideReveal() {
+    clearTimeout(showTimer);
+    if (shown) shown.classList.remove('show');
+    shown = null;
+    for (const id of ['caption', 'caption2']) { $(id).textContent = ''; $(id).parentElement.classList.remove('has-cap'); }
+    for (const id of ['peek', 'peek2']) $(id).classList.remove('show');
+  }
+  function reveal(sq, capId, peekId) {
+    const again = shown === sq;
+    hideReveal();
+    if (again) return; // second tap closes it
+    const d = sq.dataset.d, v = lastByDay[d] || {};
+    sq.classList.add('show'); shown = sq;
+    if (shownOn(v).length <= 2) {
+      const cap = $(capId);
+      cap.append(el('b', null, pretty(d)));
+      for (const ev of shownOn(v)) { cap.append(' · ' + ev.name + ' '); cap.append(el('span', 'k', v[ev.id] || 0)); }
+      cap.parentElement.classList.add('has-cap');
+    } else {
+      const pk = $(peekId);
+      pk.textContent = '';
+      const list = shownOn(v);
+      pk.classList.toggle('two', list.length > 5);
+      pk.append(el('b', null, pretty(d)));
+      const rows = el('div', 'rows'); pk.append(rows);
+      for (const ev of list) {
+        const r = el('div', 'pr' + (ev.archived ? ' gone' : '')), dot = el('i'); dot.style.background = ev.color;
+        const n = v[ev.id] || 0, g = goalOn(ev.id, d), em = el('em', null, n);
+        if (g) em.append(el('small', null, ' / ' + g));
+        r.append(dot, el('span', null, ev.name), em); rows.append(r);
+      }
+      pk.classList.add('show');
+    }
+    showTimer = setTimeout(hideReveal, events.length <= 2 ? 3500 : 5000);
+  }
+  $('grid30').addEventListener('click', e => { const sq = e.target.closest('.day'); if (sq) reveal(sq, 'caption', 'peek'); });
+  $('peek').onclick = hideReveal; $('peek2').onclick = hideReveal;
+
+  // ---------- More page: history older than the 5-week grid ----------
+  function renderMore() {
+    const list = $('more-list'), today = dayKey();
+    list.textContent = '';
+    const first = Object.keys(lastByDay).sort()[0];
+    const cutoff = shiftDay(gridStart(today), -1);
+    if (!first || first > cutoff) { list.append(el('div', 'empty', 'Nothing older than 5 weeks yet.')); return; }
+    const months = {};
+    for (let d = first; d <= cutoff; d = shiftDay(d, 1)) (months[d.slice(0, 7)] ??= []).push(d);
+    for (const m of Object.keys(months).sort().reverse()) {
+      const sec = el('div');
+      const [y, mo] = m.split('-').map(Number);
+      const h = el('h3', null, new Date(y, mo - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }));
+      const grid = el('div', 'grid');
+      gridMode(grid);
+      weekHeader(grid);
+      for (let i = weekday(months[m][0]); i > 0; i--) grid.append(el('span', 'pad'));
+      for (const d of months[m]) grid.append(square(d, today));
+      sec.append(h, grid); list.append(sec);
+    }
+  }
+  $('more-list').addEventListener('click', e => { const sq = e.target.closest('.day'); if (sq) reveal(sq, 'caption2', 'peek2'); });
+  $('more-btn').onclick = () => { renderEditor(); renderMore(); bkStatus(); $('more').showModal(); $('more-scroll').scrollTop = 0; };
+  $('more-close').onclick = () => { hideReveal(); $('more').close(); };
+
+  // ---------- More page: event editor ----------
+  function renderEditor() {
+    const list = $('ev-list');
+    list.textContent = '';
+    for (const ev of events) {
+      const row = el('div', 'evrow'); row.dataset.ex = ev.id;
+      const dot = el('span', 'dot'); dot.style.background = ev.color;
+      const name = el('input', 'evname'); name.type = 'text'; name.maxLength = 20; name.value = ev.name;
+      name.setAttribute('aria-label', 'Event name'); name.autocapitalize = 'words';
+      const lab = el('label', null, 'Max');
+      const max = el('input', 'evmax'); max.type = 'number'; max.inputMode = 'numeric'; max.min = 1; max.max = 1000; max.value = maxSet[ev.id];
+      lab.append(max);
+      const mv = el('span', 'mv');
+      const up = el('button', 'up', '▲'), down = el('button', 'down', '▼');
+      up.setAttribute('aria-label', 'Move ' + ev.name + ' up'); down.setAttribute('aria-label', 'Move ' + ev.name + ' down');
+      const i = events.indexOf(ev); up.disabled = i === 0; down.disabled = i === events.length - 1;
+      mv.append(up, down);
+      const del = el('button', 'evdel', '✕'); del.setAttribute('aria-label', 'Remove ' + ev.name);
+      row.append(dot, name, lab, mv, del);
+      list.append(row);
+    }
+    $('ev-add').disabled = events.length >= MAX_EVENTS;
+    $('ev-add').textContent = events.length >= MAX_EVENTS ? 'Up to 9 events' : '+ Add event';
+    const gone = allEvents.filter(e => e.archived), arch = $('ev-arch');
+    arch.textContent = '';
+    arch.hidden = !gone.length;
+    if (gone.length) {
+      arch.append(el('h4', null, 'Removed (history kept)'));
+      for (const ev of gone) {
+        const row = el('div', 'evrow gone'); row.dataset.ex = ev.id;
+        const dot = el('span', 'dot'); dot.style.background = ev.color;
+        const days = new Set(log.filter(x => x.ex === ev.id).map(x => x.d)).size;
+        const nm = el('span', 'gname', ev.name); nm.append(el('small', null, ` ${days} day${days === 1 ? '' : 's'}`));
+        row.append(dot, nm, el('button', 'restore', 'Restore'), el('button', 'erase', 'Erase'));
+        arch.append(row);
+      }
+    }
+  }
+  function moveEvent(id, dir) {
+    const order = events.map(e => e.id), i = order.indexOf(id), j = i + dir;
+    if (i < 0 || j < 0 || j >= order.length) return;
+    [order[i], order[j]] = [order[j], order[i]];
+    allEvents = [...order.map(evById), ...allEvents.filter(e => e.archived)];
+    syncEvents(); saveEvents(); buildCards(); render(); renderEditor(); renderMore();
+  }
+  function eraseEvent(id) {
+    allEvents = allEvents.filter(x => x.id !== id);
+    log = log.filter(x => x.ex !== id);
+    delete goals[id]; delete maxSet[id];
+    for (const g of Object.values(dayGoals)) delete g[id];
+    syncEvents(); saveEvents(); save(); saveGoals(); saveMax(); saveDayGoals();
+  }
+  $('ev-list').addEventListener('change', e => {
+    const row = e.target.closest('.evrow'); if (!row) return;
+    const ev = evById(row.dataset.ex); if (!ev) return;
+    if (e.target.classList.contains('evname')) {
+      const v = e.target.value.trim().slice(0, 20);
+      if (!v) { e.target.value = ev.name; return; }
+      ev.name = v; saveEvents(); buildCards(); render(); toast('Renamed to ' + v);
+    } else if (e.target.classList.contains('evmax')) {
+      const n = parseInt(e.target.value, 10);
+      if (!Number.isInteger(n) || n < 1 || n > 1000) { e.target.value = maxSet[ev.id]; return; }
+      maxSet[ev.id] = n; saveMax(); render(); toast(`${ev.name}: max ${n} per set`);
+    }
+  });
+  $('ev-list').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.target.blur(); });
+  let delId = null;
+  $('ev-list').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const id = b.closest('.evrow').dataset.ex, ev = evById(id); if (!ev) return;
+    if (b.classList.contains('up')) return moveEvent(id, -1);
+    if (b.classList.contains('down')) return moveEvent(id, 1);
+    if (!b.classList.contains('evdel')) return;
+    if (events.length === 1) { toast('Keep at least one event'); return; }
+    delId = id;
+    $('del-title').textContent = `Remove ${ev.name}?`;
+    $('deldlg').showModal();
+  });
+  $('del-keep').onclick = () => {
+    $('deldlg').close();
+    const ev = evById(delId); if (!ev) return;
+    ev.archived = true; syncEvents(); saveEvents();
+    buildCards(); render(); renderEditor(); renderMore(); toast(ev.name + ' removed, history kept');
+  };
+  $('del-erase').onclick = () => {
+    $('deldlg').close();
+    const ev = evById(delId); if (!ev) return;
+    if (!confirm(`Erase all history for ${ev.name}? This can't be undone (a backup made before now still has it).`)) return;
+    eraseEvent(delId);
+    buildCards(); render(); renderEditor(); renderMore(); toast(ev.name + ' erased');
+  };
+  $('del-cancel').onclick = () => $('deldlg').close();
+  $('ev-arch').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const id = b.closest('.evrow').dataset.ex, ev = evById(id); if (!ev) return;
+    if (b.classList.contains('restore')) {
+      if (events.length >= MAX_EVENTS) { toast('Remove an event first (9 max)'); return; }
+      delete ev.archived;
+      allEvents = [...events, ev, ...allEvents.filter(x => x.archived && x !== ev)];
+      syncEvents(); saveEvents(); buildCards(); render(); renderEditor(); renderMore(); toast(ev.name + ' restored');
+    } else if (b.classList.contains('erase')) {
+      if (!confirm(`Erase all history for ${ev.name}? This can't be undone (a backup made before now still has it).`)) return;
+      eraseEvent(id); buildCards(); render(); renderEditor(); renderMore(); toast(ev.name + ' erased');
+    }
+  });
+  $('ev-add').onclick = () => {
+    if (events.length >= MAX_EVENTS) return;
+    const used = new Set(allEvents.map(e => e.color));
+    const color = PALETTE.find(c => !used.has(c)) || PALETTE[events.length % PALETTE.length];
+    let id; do { id = 'e' + Math.random().toString(36).slice(2, 9); } while (evById(id));
+    let k = events.length + 1, name; do { name = 'Event ' + k++; } while (allEvents.some(e => e.name === name));
+    allEvents = [...events, { id, name, color }, ...allEvents.filter(e => e.archived)];
+    syncEvents();
+    maxSet[id] = 20; goals[id] = null;
+    saveEvents(); saveMax(); saveGoals();
+    buildCards(); render(); renderEditor(); renderMore();
+    const input = $('ev-list').querySelector(`.evrow[data-ex="${id}"] .evname`);
+    if (input) { input.focus(); input.select(); }
+  };
+
+  // ---------- Backup / restore (to iCloud Drive via the share sheet / Files picker) ----------
+  const BKKEY = 'rep-tally-lastbackup-v1';
+  function bkStatus() {
+    let t = 0; try { t = Number(localStorage.getItem(BKKEY)) || 0; } catch {}
+    const s = $('bk-status');
+    if (!t) { s.textContent = 'Not backed up yet'; s.className = 'warn'; return; }
+    const days = Math.floor((Date.now() - t) / 86400000);
+    s.textContent = 'Last backup: ' + (days < 1 ? 'today' : days === 1 ? 'yesterday' : days + ' days ago');
+    s.className = days >= 7 ? 'warn' : '';
+  }
+  function backupAge() {   // days since last backup, or Infinity if never
+    let t = 0; try { t = Number(localStorage.getItem(BKKEY)) || 0; } catch {}
+    return t ? Math.floor((Date.now() - t) / 86400000) : Infinity;
+  }
+  function renderNudge() { $('bk-nudge').hidden = !(log.length && backupAge() >= 7); }
+  $('bk-nudge').onclick = () => doBackup();
+  $('bk-save').onclick = () => doBackup();
+  async function doBackup() {
+    const data = { app: 'rep-tally', v: 2, saved: new Date().toISOString(), events: allEvents, log, goals, dayGoals, maxSet };
+    const name = `rep-tally-backup-${dayKey()}.json`;
+    const file = new File([JSON.stringify(data)], name, { type: 'application/json' });
+    const done = () => { try { localStorage.setItem(BKKEY, String(Date.now())); } catch {} bkStatus(); renderNudge(); toast('Backed up'); };
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file] }); done(); }
+      catch (e) { if (e && e.name !== 'AbortError') toast('Backup failed'); }
+    } else {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(file); a.download = name; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000); done();
+    }
+  }
+  $('bk-load').onclick = () => $('bk-file').click();
+  $('bk-file').onchange = async () => {
+    const f = $('bk-file').files[0]; $('bk-file').value = '';
+    if (!f) return;
+    let data;
+    try { if (f.size > 5e6) throw 0; data = JSON.parse(await f.text()); } catch { toast("That file isn't a backup"); return; }
+    if (!data || data.app !== 'rep-tally' || !Array.isArray(data.log)) { toast("That file isn't a backup"); return; }
+    const newEvents = cleanEvents(data.events) || DEFAULT_EVENTS.map(e => ({ ...e }));
+    const ids = new Set(newEvents.map(e => e.id));
+    const newLog = cleanLog(data.log).filter(e => ids.has(e.ex));
+    const days = new Set(newLog.map(e => e.d)), sorted = [...days].sort();
+    const msg = (days.size
+      ? `Replace what's on this phone with the backup?\n\n${days.size} day${days.size === 1 ? '' : 's'}, ${pretty(sorted[0])} to ${pretty(sorted[sorted.length - 1])}.`
+      : 'This backup has no days in it. Replace everything on this phone anyway?')
+      + `\nEvents: ${newEvents.filter(e => !e.archived).map(e => e.name).join(', ')}`;
+    if (!confirm(msg)) return;
+    allEvents = newEvents; syncEvents(); log = newLog;
+    goals = cleanGoals(data.goals, allEvents); maxSet = cleanMax(data.maxSet, allEvents); dayGoals = cleanDayGoals(data.dayGoals);
+    saveEvents(); save(); saveGoals(); saveMax(); saveDayGoals();
+    buildCards(); render(); renderEditor(); renderMore(); toast('Restored');
+  };
+
+  // ---------- number dialog: goal or max per set ----------
+  let dlgEx = null, dlgMode = 'goal';
+  function openDlg() { $('dlg').showModal(); setTimeout(() => $('dlg-input').focus(), 50); }
+  function openMax(id) {
+    dlgEx = id; dlgMode = 'max';
+    $('dlg-title').textContent = `Max ${nameOf(id).toLowerCase()} per set`;
+    $('dlg-ok').textContent = 'Save';
+    $('dlg-input').value = maxSet[id];
+    openDlg();
+  }
+  function openGoal(id) {
+    dlgEx = id; dlgMode = 'goal';
+    const g = goalFor(id);
+    $('dlg-title').textContent = `Today's ${nameOf(id).toLowerCase()} goal` + (g ? ' (0 to clear)' : '');
+    $('dlg-ok').textContent = 'Set goal';
+    $('dlg-input').value = g || '';
+    openDlg();
+  }
+  $('dlg-ok').onclick = () => {
+    const n = parseInt($('dlg-input').value, 10);
+    $('dlg').close();
+    if (!isActive(dlgEx)) return;
+    if (dlgMode === 'max') {
+      if (Number.isInteger(n) && n > 0 && n <= 1000) { maxSet[dlgEx] = n; saveMax(); render(); toast(`Max ${nameOf(dlgEx).toLowerCase()} per set: ${n}`); }
+    } else if (Number.isInteger(n) && n >= 0 && n <= 100000) {
+      goals[dlgEx] = n ? { d: dayKey(), n } : null; saveGoals(); render();
+      toast(n ? `${nameOf(dlgEx)} goal: ${n}` : `${nameOf(dlgEx)} goal cleared`);
+    }
+  };
+  $('dlg-cancel').onclick = () => $('dlg').close();
+  $('dlg-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('dlg-ok').click(); });
+
+  // Roll over to a new day if the app is left open past midnight
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+  buildCards();
+  render();
+
+  // Offline: keep a copy of the app on the phone so it opens without signal.
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
