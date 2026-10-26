@@ -173,7 +173,7 @@
   .empty { color: var(--dim); padding: 6px 0; font-size: 15px; }
 
   #toast { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 10px); transform: translateX(-50%) translateY(-20px);
-    background: #2d3540; padding: 10px 18px; border-radius: 999px; font-weight: 600; opacity: 0; transition: .2s; pointer-events: none; z-index: 10; white-space: nowrap; }
+    background: #2d3540; padding: 10px 18px; border-radius: 999px; font-weight: 600; opacity: 0; transition: .2s; pointer-events: none; z-index: 10; width: max-content; max-width: 92vw; text-align: center; }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   dialog { background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 20px; padding: 18px; width: min(90vw, 340px); }
   dialog::backdrop { background: rgba(0,0,0,.6); }
@@ -182,6 +182,26 @@
   #dlg .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   #dlg .btns button { min-height: 52px; border-radius: 12px; font-size: 18px; font-weight: 700; background: var(--line); }
   #dlg .btns .ok { background: var(--text); color: var(--bg); }
+  input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type=number] { -moz-appearance: textfield; }
+  #gdlg { width: min(94vw, 380px); }
+  #gdlg .gl { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; font-size: 15px; color: var(--dim); font-weight: 600; }
+  #gdlg input { font: inherit; font-size: 18px; font-weight: 700; color: var(--text); background: var(--bg); border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px 10px; width: 96px; text-align: center; -webkit-user-select: text; user-select: text; }
+  #gdlg #g-n { font-size: 26px; width: 110px; }
+  #gdlg .stepper { display: flex; align-items: center; gap: 6px; }
+  #gdlg .stepper input { width: 58px; }
+  #gdlg .stepper button { width: 38px; height: 38px; border-radius: 10px; background: var(--line); font-size: 20px; font-weight: 700; }
+  #gdlg .seg { display: flex; background: var(--bg); border-radius: 10px; padding: 3px; gap: 2px; }
+  #gdlg .seg button { padding: 8px 9px; border-radius: 8px; font-size: 14px; font-weight: 700; color: var(--dim); background: transparent; }
+  #gdlg .seg button[aria-pressed="true"] { background: var(--line); color: var(--text); }
+  #gdlg .off { opacity: .35; pointer-events: none; }
+  #g-preview { margin-top: 14px; font-size: 14px; color: var(--dim); line-height: 1.4; min-height: 40px; }
+  #g-preview b { color: var(--text); }
+  #gdlg .gbtns { display: grid; grid-template-columns: 1fr 1fr 1.3fr; gap: 8px; margin-top: 12px; }
+  #gdlg .gbtns button { min-height: 50px; border-radius: 12px; font-size: 16px; font-weight: 700; background: var(--line); }
+  #gdlg .gbtns .ok { background: var(--text); color: var(--bg); }
+  #gdlg #g-clear { color: var(--red); }
   @media (max-height: 720px) {
     body { gap: 8px; }
     body:not(.compact) .ex { padding: 12px; gap: 8px; }
@@ -233,6 +253,19 @@
       <button class="erase" id="del-erase">Remove and erase history</button>
       <button id="del-cancel">Cancel</button>
     </div>
+  </dialog>
+
+  <dialog id="gdlg">
+    <div id="g-title" style="font-weight:700;font-size:18px"></div>
+    <label class="gl">Today's goal<input id="g-n" type="number" inputmode="numeric" pattern="[0-9]*" min="1" max="100000"></label>
+    <div class="gl">Increase by
+      <div class="stepper"><button data-d="-1" aria-label="Less">−</button><input id="g-step" type="number" inputmode="numeric" min="1" max="1000"><button data-d="1" aria-label="More">+</button></div>
+    </div>
+    <div class="gl">Every<div class="seg" id="g-every"><button data-v="day">Day</button><button data-v="week">Week</button><button data-v="month">Month</button><button data-v="never">Never</button></div></div>
+    <label class="gl" id="g-cap-row">Stop at<input id="g-cap" type="number" inputmode="numeric" pattern="[0-9]*" min="1" placeholder="no limit"></label>
+    <div class="gl" id="g-wait-row">If I miss<div class="seg" id="g-wait"><button data-v="0">Keep climbing</button><button data-v="1">Wait for me</button></div></div>
+    <div id="g-preview"></div>
+    <div class="gbtns"><button id="g-clear">Clear</button><button id="g-cancel">Cancel</button><button class="ok" id="g-save">Save</button></div>
   </dialog>
 
   <dialog id="dlg">
@@ -309,11 +342,20 @@
     const out = {};
     for (const e of evs) {
       const g = v && v[e.id];
-      if (Number.isInteger(g) && g > 0) out[e.id] = { d: dayKey(), n: g }; // older format
-      else if (g && Number.isInteger(g.n) && g.n > 0 && g.n <= 100000 && okDay(g.d)) out[e.id] = { d: g.d, n: g.n };
-      else out[e.id] = null;
+      if (Number.isInteger(g) && g > 0) out[e.id] = cleanGoal({ d: dayKey(), n: g }); // older format
+      else out[e.id] = cleanGoal(g);
     }
     return out;
+  }
+  // A goal: start value n on day d, growing by `step` every day/week/month (or never), optionally stopping at `cap`.
+  // wait = only grow after periods where every day's goal was hit. Older goals ({d, n}) mean +1 every day.
+  const EVERY = ['day', 'week', 'month', 'never'];
+  function cleanGoal(g) {
+    if (!g || !Number.isInteger(g.n) || g.n < 1 || g.n > 100000 || !okDay(g.d)) return null;
+    const step = Number.isInteger(g.step) && g.step >= 1 && g.step <= 1000 ? g.step : 1;
+    const every = EVERY.includes(g.every) ? g.every : 'day';
+    const cap = Number.isInteger(g.cap) && g.cap > 0 && g.cap <= 100000 ? g.cap : 0;
+    return { d: g.d, n: g.n, step, every, cap, wait: g.wait === true };
   }
   function cleanDayGoals(v) {
     const out = {};
@@ -342,9 +384,56 @@
   const evById = id => allEvents.find(e => e.id === id);
   const isActive = id => events.some(e => e.id === id);
   const nameOf = id => (evById(id) || { name: '?' }).name;
-  function goalFor(id, day = dayKey()) {
-    const g = goals[id];
-    return g ? g.n + Math.max(0, daysBetween(g.d, day)) : 0;
+  function goalFor(id, day = dayKey()) { return goalValue(goals[id], id, day); }
+
+  // The first day of the period containing `day` (weeks start Sunday; months start on the goal's day-of-month).
+  function monthAnniv(base, y, m) {   // base's day-of-month in year y / month m (0-based), clamped to month end
+    const dom = Number(base.slice(8)), last = new Date(y, m + 1, 0).getDate();
+    return dayKey(new Date(y, m, Math.min(dom, last)));
+  }
+  // Increase days strictly after g.d, up to and including `day`
+  function boundaries(g, day) {
+    const out = [];
+    if (g.every === 'never' || day <= g.d) return out;
+    if (g.every === 'day') { for (let d = shiftDay(g.d, 1); d <= day; d = shiftDay(d, 1)) out.push(d); }
+    else if (g.every === 'week') {
+      for (let d = shiftDay(g.d, 7 - weekday(g.d)); d <= day; d = shiftDay(d, 7)) out.push(d);
+    } else {
+      const [y, m] = g.d.split('-').map(Number);
+      for (let k = 1; ; k++) {
+        const d = monthAnniv(g.d, y, m - 1 + k);
+        if (d > day) break;
+        out.push(d);
+      }
+    }
+    return out;
+  }
+  function totalsFor(id) {
+    const t = {};
+    for (const e of log) if (e.ex === id) t[e.d] = (t[e.d] || 0) + e.n;
+    return t;
+  }
+  function goalValue(g, id, day) {
+    if (!g) return 0;
+    const capIt = v => g.cap ? Math.min(v, Math.max(g.cap, g.n)) : v;
+    const bs = boundaries(g, day);
+    if (!g.wait) return capIt(g.n + g.step * bs.length);
+    // "wait for me": a period only earns its increase if every day in it hit that day's goal
+    const tot = totalsFor(id);
+    let v = g.n, start = g.d;
+    for (const b of bs) {
+      let ok = true;
+      for (let d = start; d < b; d = shiftDay(d, 1)) if ((tot[d] || 0) < v) { ok = false; break; }
+      if (ok) v = capIt(v + g.step);
+      start = b;
+    }
+    return v;
+  }
+  function describeGoal(g) {
+    if (!g) return 'No goal';
+    if (g.every === 'never') return 'Stays the same';
+    const per = { day: 'day', week: 'week (Sundays)', month: 'month' }[g.every];
+    return `+${g.step} every ${per}` + (g.cap ? `, up to ${g.cap}` : '') + (g.wait ? ', waits if you miss' : '');
   }
   function snapshotToday() {
     const d = dayKey(), cur = {};
@@ -380,7 +469,7 @@
   let toastTimer;
   function toast(msg) {
     const t = $('toast'); t.textContent = msg; t.classList.add('show');
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1400);
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), msg.length > 30 ? 2600 : 1400);
   }
   const el = (tag, cls, text) => { const x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; };
 
@@ -809,23 +898,73 @@
     $('dlg-input').value = maxSet[id];
     openDlg();
   }
-  function openGoal(id) {
-    dlgEx = id; dlgMode = 'goal';
-    const g = goalFor(id);
-    $('dlg-title').textContent = `Today's ${nameOf(id).toLowerCase()} goal` + (g ? ' (0 to clear)' : '');
-    $('dlg-ok').textContent = 'Set goal';
-    $('dlg-input').value = g || '';
-    openDlg();
+  // ---------- goal sheet ----------
+  let gEx = null;
+  const segVal = id => ($(id).querySelector('[aria-pressed="true"]') || {}).dataset?.v;
+  function setSeg(id, v) { for (const b of $(id).querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.v === v)); }
+  function sheetGoal() {   // the goal as currently entered, starting today
+    const n = parseInt($('g-n').value, 10), step = parseInt($('g-step').value, 10), cap = parseInt($('g-cap').value, 10);
+    return cleanGoal({ d: dayKey(), n, step: step || 1, every: segVal('g-every'), cap: cap || 0, wait: segVal('g-wait') === '1' });
   }
+  function previewGoal() {
+    const g = sheetGoal(), pv = $('g-preview'), every = segVal('g-every');
+    $('g-cap-row').classList.toggle('off', every === 'never');
+    $('g-wait-row').classList.toggle('off', every === 'never');
+    $('g-step').closest('.gl').classList.toggle('off', every === 'never');
+    pv.textContent = '';
+    if (!g) { pv.textContent = 'Enter today\'s goal.'; return; }
+    if (g.every === 'never' || (g.cap && g.n >= g.cap)) { pv.append('Stays at ', el('b', null, g.n), ' every day.'); return; }
+    const today = dayKey(), plain = { ...g, wait: false };
+    const nextDay = boundaries(plain, shiftDay(today, 40))[0];
+    const at = (days) => goalValue(plain, gEx, shiftDay(today, days));
+    pv.append('Next: ', el('b', null, goalValue(plain, gEx, nextDay)), ' on ' + pretty(nextDay) + '. In 3 months: ', el('b', null, at(91)),
+              ', in a year: ', el('b', null, at(365)), '.');
+    if (g.wait) pv.append(' (If you hit every day. Misses pause it.)');
+  }
+  function openGoal(id) {
+    gEx = id;
+    const g = goals[id], today = goalFor(id);
+    $('g-title').textContent = nameOf(id) + ' goal';
+    $('g-n').value = today || '';
+    $('g-step').value = g ? g.step : 1;
+    $('g-cap').value = g && g.cap ? g.cap : '';
+    setSeg('g-every', g ? g.every : 'day');
+    setSeg('g-wait', g && g.wait ? '1' : '0');
+    $('g-clear').disabled = !g;
+    previewGoal();
+    $('gdlg').showModal();
+    if (!today) setTimeout(() => $('g-n').focus(), 50);
+  }
+  for (const id of ['g-every', 'g-wait']) $(id).addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    setSeg(id, b.dataset.v); previewGoal();
+  });
+  $('gdlg').querySelector('.stepper').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const v = Math.min(1000, Math.max(1, (parseInt($('g-step').value, 10) || 1) + Number(b.dataset.d)));
+    $('g-step').value = v; previewGoal();
+  });
+  for (const id of ['g-n', 'g-step', 'g-cap']) $(id).addEventListener('input', previewGoal);
+  $('g-cancel').onclick = () => $('gdlg').close();
+  $('g-clear').onclick = () => {
+    $('gdlg').close();
+    if (!isActive(gEx)) return;
+    goals[gEx] = null; saveGoals(); render(); toast(nameOf(gEx) + ' goal cleared');
+  };
+  $('g-save').onclick = () => {
+    const g = sheetGoal();
+    if (!g) { $('g-n').focus(); return; }
+    $('gdlg').close();
+    if (!isActive(gEx)) return;
+    goals[gEx] = g; saveGoals(); render();
+    toast(`${nameOf(gEx)}: ${g.n} · ${describeGoal(g)}`);
+  };
   $('dlg-ok').onclick = () => {
     const n = parseInt($('dlg-input').value, 10);
     $('dlg').close();
     if (!isActive(dlgEx)) return;
     if (dlgMode === 'max') {
       if (Number.isInteger(n) && n > 0 && n <= 1000) { maxSet[dlgEx] = n; saveMax(); render(); toast(`Max ${nameOf(dlgEx).toLowerCase()} per set: ${n}`); }
-    } else if (Number.isInteger(n) && n >= 0 && n <= 100000) {
-      goals[dlgEx] = n ? { d: dayKey(), n } : null; saveGoals(); render();
-      toast(n ? `${nameOf(dlgEx)} goal: ${n}` : `${nameOf(dlgEx)} goal cleared`);
     }
   };
   $('dlg-cancel').onclick = () => $('dlg').close();
