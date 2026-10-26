@@ -71,8 +71,8 @@
 
   /* 3+ events: smaller cards so more fit */
   body.compact #events { gap: 8px; flex: 1 1 auto; }
-  body.compact .ex { padding: 10px 12px; gap: 8px; border-radius: 16px; flex: none; }
-  body.compact .row { flex: none; }
+  body.compact .ex { padding: 10px 12px; gap: 8px; border-radius: 16px; flex: 1 0 auto; }
+  body.compact .row { flex: 1 1 auto; max-height: 76px; }
   body.compact .nm { font-size: 17px; }
   body.compact .lhs { gap: 2px; }
   body.compact .sets { font-size: 12px; }
@@ -173,8 +173,12 @@
   #deldlg button { min-height: 50px; border-radius: 12px; font-size: 16px; font-weight: 700; background: var(--line); }
   #deldlg .keep { background: var(--text); color: var(--bg); }
   #deldlg .erase { background: transparent; border: 1.5px solid var(--red); color: var(--red); }
-  #ev-add { min-height: 46px; border-radius: 12px; background: var(--card); border: 2px dashed var(--line); font-weight: 700; font-size: 16px; }
-  #ev-add:disabled { opacity: .4; }
+  .addrow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .addrow:has(#ev-add-min[hidden]) { grid-template-columns: 1fr; }
+  #ev-add, #ev-add-min { min-height: 46px; border-radius: 12px; background: var(--card); border: 2px dashed var(--line); font-weight: 700; font-size: 15px; }
+  #ev-add:disabled, #ev-add-min:disabled { opacity: .4; }
+  .evrow label { width: 92px; justify-content: flex-end; }
+  .evrow .mintag { width: 92px; text-align: center; font-size: 13px; color: var(--dim); font-weight: 600; flex: none; }
   .hint { font-size: 12px; color: var(--dim); margin: 0; }
   .bk { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex: none; }
   .bk button { min-height: 50px; border-radius: 12px; font-size: 16px; font-weight: 700; background: var(--line); }
@@ -243,9 +247,9 @@
       <div class="evedit">
         <h3>Events</h3>
         <div id="ev-list"></div>
-        <button id="ev-add">+ Add event</button>
+        <div class="addrow"><button id="ev-add">+ Reps event</button><button id="ev-add-min">+ Minutes event</button></div>
         <div id="ev-arch" hidden></div>
-        <p class="hint">Tap a name to rename it. ▲▼ change the order. "Max" is the most you want to do in one set. Up to 9 events. Removing an event keeps its history unless you choose to erase it.</p>
+        <p class="hint">Reps events count reps; minutes events are for cardio or sports. Tap a name to rename it. ▲▼ change the order. "Max" is the most you want to do in one set. Up to 9 events. Removing an event keeps its history unless you choose to erase it.</p>
       </div>
       <div><h3>History</h3><div id="more-list"></div></div>
     </div>
@@ -331,7 +335,8 @@
       let archived = !!e.archived;
       if (!archived && active >= MAX_EVENTS) archived = true;
       if (!archived) active++;
-      seen.add(e.id); out.push({ id: e.id, name, color: okColor(e.color) ? e.color : PALETTE[out.length % PALETTE.length], ...(archived ? { archived: true } : {}) });
+      seen.add(e.id); out.push({ id: e.id, name, color: okColor(e.color) ? e.color : PALETTE[out.length % PALETTE.length],
+        ...(e.unit === 'min' ? { unit: 'min' } : {}), ...(archived ? { archived: true } : {}) });
       if (out.length === 40) break;
     }
     return active ? out : null;
@@ -394,6 +399,14 @@
   const evById = id => allEvents.find(e => e.id === id);
   const isActive = id => events.some(e => e.id === id);
   const nameOf = id => (evById(id) || { name: '?' }).name;
+  // 'min' events count minutes (cardio, sports); everything else counts reps
+  const isMin = id => (evById(id) || {}).unit === 'min';
+  const amount = (id, n) => isMin(id) ? `${n} min` : String(n);
+  function fmtMinutes(m) {
+    if (Math.abs(m) < 60) return m + ' min';
+    const h = Math.trunc(m / 60), r = Math.abs(m % 60);
+    return r ? `${h.toLocaleString()}h ${r}m` : `${h.toLocaleString()} hr`;
+  }
   function goalFor(id, day = dayKey()) { return goalValue(goals[id], id, day); }
 
   // The first day of the period containing `day` (weeks start Sunday; months start on the goal's day-of-month).
@@ -500,7 +513,8 @@
       top.append(lhs, goal);
       const bar = el('div', 'bar'); bar.append(el('i'));
       const row = el('div', 'row');
-      for (const n of [20, 10, 5, 1]) { const b = el('button', 'add', '+' + n); b.dataset.n = n; row.append(b); }
+      for (const n of ev.unit === 'min' ? [30, 15, 5, 1] : [20, 10, 5, 1]) { const b = el('button', 'add', '+' + n); b.dataset.n = n; row.append(b); }
+      if (ev.unit === 'min') sec.classList.add('mins');
       const minus = el('button', 'add minus', '−1'); minus.dataset.n = -1; minus.setAttribute('aria-label', 'Minus 1'); row.append(minus);
       sec.append(top, bar, row);
       wrap.append(sec);
@@ -536,14 +550,14 @@
     if (!isActive(id) || !Number.isInteger(n) || n === 0 || Math.abs(n) > 1000) return;
     if (n < 0 && todayTotal(id) + n < 0) return; // never go below zero
     log.push({ d: dayKey(), ex: id, n, t: Date.now() });
-    save(); render(); toast(`${n > 0 ? '+' : '−'}${Math.abs(n)} ${nameOf(id).toLowerCase()}`);
+    save(); render(); toast(`${n > 0 ? '+' : '−'}${amount(id, Math.abs(n))} ${nameOf(id).toLowerCase()}`);
     if (navigator.vibrate) navigator.vibrate(15);
   }
   function undo() {
     const last = log[log.length - 1];
     if (!last || last.d !== dayKey()) return; // only undo today's taps
     log.pop();
-    save(); render(); toast(`Undid ${last.n > 0 ? '+' : '−'}${Math.abs(last.n)} ${nameOf(last.ex).toLowerCase()}`);
+    save(); render(); toast(`Undid ${last.n > 0 ? '+' : '−'}${amount(last.ex, Math.abs(last.n))} ${nameOf(last.ex).toLowerCase()}`);
   }
   $('undo').onclick = undo;
 
@@ -564,10 +578,11 @@
       if (!sec) continue;
       const g = goalFor(ev.id), n = t[ev.id] || 0;
       sec.querySelector('.total').textContent = n;
-      sec.querySelector('.alltime').textContent = (allTime[ev.id] || 0).toLocaleString() + ' all-time';
+      const at = allTime[ev.id] || 0, mins = ev.unit === 'min';
+      sec.querySelector('.alltime').textContent = (mins ? fmtMinutes(at) : at.toLocaleString()) + ' all-time';
       const setsEl = sec.querySelector('.sets');
       setsEl.textContent = '';
-      if (g) {
+      if (g && !mins) {
         // sets already done (what you actually did), then the rest of the goal re-planned
         const done = setsDone(ev.id, today);
         const plan = splitSets(Math.max(0, g - n), maxSet[ev.id]);
@@ -584,9 +599,9 @@
       if (g) {
         const pct = n / g;
         sec.classList.add('has-goal', pct >= 1 ? 'hit' : pct >= 0.5 ? 'mid' : 'lo');
-        unit.textContent = pct >= 1 ? `/ ${g} ✓` : `/ ${g}`;
+        unit.textContent = `/ ${g}${mins ? ' min' : ''}` + (pct >= 1 ? ' ✓' : '');
         sec.querySelector('.bar i').style.width = Math.min(100, pct * 100) + '%';
-      } else unit.textContent = 'today';
+      } else unit.textContent = mins ? 'min today' : 'today';
     }
 
     const undoBtn = $('undo'), last = log[log.length - 1];
@@ -702,6 +717,7 @@
         const r = el('div', 'pr' + (ev.archived ? ' gone' : '')), dot = el('i'); dot.style.background = ev.color;
         const n = v[ev.id] || 0, g = goalOn(ev.id, d), em = el('em', null, n);
         if (g) em.append(el('small', null, ' / ' + g));
+        if (ev.unit === 'min') em.append(el('small', null, ' min'));
         r.append(dot, el('span', null, ev.name), em); rows.append(r);
       }
       pk.classList.add('show');
@@ -745,9 +761,9 @@
       const dot = el('span', 'dot'); dot.style.background = ev.color;
       const name = el('input', 'evname'); name.type = 'text'; name.maxLength = 20; name.value = ev.name;
       name.setAttribute('aria-label', 'Event name'); name.autocapitalize = 'words';
-      const lab = el('label', null, 'Max');
+      const lab = ev.unit === 'min' ? el('span', 'mintag', 'minutes') : el('label', null, 'Max');
       const max = el('input', 'evmax'); max.type = 'number'; max.inputMode = 'numeric'; max.min = 1; max.max = 1000; max.value = maxSet[ev.id];
-      lab.append(max);
+      if (ev.unit !== 'min') lab.append(max);
       const mv = el('span', 'mv');
       const up = el('button', 'up', '▲'), down = el('button', 'down', '▼');
       up.setAttribute('aria-label', 'Move ' + ev.name + ' up'); down.setAttribute('aria-label', 'Move ' + ev.name + ' down');
@@ -757,8 +773,10 @@
       row.append(dot, name, lab, mv, del);
       list.append(row);
     }
-    $('ev-add').disabled = events.length >= MAX_EVENTS;
-    $('ev-add').textContent = events.length >= MAX_EVENTS ? 'Up to 9 events' : '+ Add event';
+    const full = events.length >= MAX_EVENTS;
+    $('ev-add').disabled = $('ev-add-min').disabled = full;
+    $('ev-add').textContent = full ? 'Up to 9 events' : '+ Reps event';
+    $('ev-add-min').hidden = full;
     const gone = allEvents.filter(e => e.archived), arch = $('ev-arch');
     arch.textContent = '';
     arch.hidden = !gone.length;
@@ -841,20 +859,24 @@
       eraseEvent(id); buildCards(); render(); renderEditor(); renderMore(); toast(ev.name + ' erased');
     }
   });
-  $('ev-add').onclick = () => {
+  $('ev-add').onclick = () => addEvent('reps');
+  $('ev-add-min').onclick = () => addEvent('min');
+  function addEvent(unit) {
     if (events.length >= MAX_EVENTS) return;
     const used = new Set(allEvents.map(e => e.color));
     const color = PALETTE.find(c => !used.has(c)) || PALETTE[events.length % PALETTE.length];
     let id; do { id = 'e' + Math.random().toString(36).slice(2, 9); } while (evById(id));
-    let k = events.length + 1, name; do { name = 'Event ' + k++; } while (allEvents.some(e => e.name === name));
-    allEvents = [...events, { id, name, color }, ...allEvents.filter(e => e.archived)];
+    const base = unit === 'min' ? 'Cardio' : 'Event';
+    let k = unit === 'min' ? 1 : events.length + 1, name;
+    do { name = unit === 'min' && k === 1 ? base : base + ' ' + k; k++; } while (allEvents.some(e => e.name === name));
+    allEvents = [...events, { id, name, color, ...(unit === 'min' ? { unit: 'min' } : {}) }, ...allEvents.filter(e => e.archived)];
     syncEvents();
     maxSet[id] = 20; goals[id] = null;
     saveEvents(); saveMax(); saveGoals();
     buildCards(); render(); renderEditor(); renderMore();
     const input = $('ev-list').querySelector(`.evrow[data-ex="${id}"] .evname`);
     if (input) { input.focus(); input.select(); }
-  };
+  }
 
   // ---------- Backup / restore (to iCloud Drive via the share sheet / Files picker) ----------
   const BKKEY = 'rep-tally-lastbackup-v1';
@@ -945,7 +967,7 @@
   function openGoal(id) {
     gEx = id;
     const g = goals[id], today = goalFor(id);
-    $('g-title').textContent = nameOf(id) + ' goal';
+    $('g-title').textContent = nameOf(id) + (isMin(id) ? ' goal (minutes)' : ' goal');
     $('g-n').value = today || '';
     $('g-step').value = g ? g.step : 1;
     $('g-cap').value = g && g.cap ? g.cap : '';
