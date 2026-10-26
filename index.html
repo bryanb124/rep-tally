@@ -937,6 +937,7 @@
     if (!f) return;
     let data;
     try { if (f.size > 5e6) throw 0; data = JSON.parse(await f.text()); } catch { toast("That file isn't a backup"); return; }
+    if (data && data.app === 'rep-tally' && data.kind === 'add') return addHistory(data);
     if (!data || data.app !== 'rep-tally' || !Array.isArray(data.log)) { toast("That file isn't a backup"); return; }
     const newEvents = cleanEvents(data.events) || DEFAULT_EVENTS.map(e => ({ ...e }));
     const ids = new Set(newEvents.map(e => e.id));
@@ -952,6 +953,45 @@
     saveEvents(); save(); saveGoals(); saveMax(); saveDayGoals();
     buildCards(); render(); renderEditor(); renderMore(); toast('Restored');
   };
+
+  // ---------- "add to history" files: set an event's total on past days, matched by event name ----------
+  // { app: 'rep-tally', kind: 'add', events: [{ name, unit }], days: [{ d, name, n }] }
+  function addHistory(data) {
+    const today = dayKey();
+    const wanted = new Map();   // lower-case name -> { name, unit }
+    for (const e of Array.isArray(data.events) ? data.events : []) {
+      if (e && typeof e.name === 'string' && e.name.trim()) wanted.set(e.name.trim().toLowerCase().slice(0, 20), { name: e.name.trim().slice(0, 20), unit: e.unit === 'min' ? 'min' : 'reps' });
+    }
+    const days = (Array.isArray(data.days) ? data.days : []).filter(x => x && okDay(x.d) && x.d <= today && typeof x.name === 'string'
+      && Number.isInteger(x.n) && x.n >= 0 && x.n <= 100000).map(x => ({ d: x.d, key: x.name.trim().toLowerCase().slice(0, 20), n: x.n }));
+    if (!days.length) { toast('Nothing to add in that file'); return; }
+    for (const x of days) if (!wanted.has(x.key)) wanted.set(x.key, { name: x.key, unit: 'reps' });
+    const findEv = key => allEvents.find(e => e.name.toLowerCase() === key);
+    const toCreate = [...new Set(days.map(x => x.key))].filter(k => !findEv(k));
+    if (events.length + toCreate.length > MAX_EVENTS) { toast('Too many events: remove one first (9 max)'); return; }
+    const summary = [...new Set(days.map(x => x.key))].map(k => {
+      const list = days.filter(x => x.key === k), w = wanted.get(k), ev = findEv(k);
+      const label = (ev ? ev.name : w.name) + (ev ? '' : ' (new event' + (w.unit === 'min' ? ', minutes' : '') + ')');
+      return `${label}: ${list.length} day${list.length === 1 ? '' : 's'}, ${pretty(list[0].d)} – ${pretty(list[list.length - 1].d)}`;
+    }).join('\n');
+    if (!confirm(`Add to your history?\n\n${summary}\n\nThis sets the total for those days. Anything already logged for that event on those days is replaced; nothing else changes.`)) return;
+    for (const k of toCreate) {
+      const w = wanted.get(k), used = new Set(allEvents.map(e => e.color));
+      const color = PALETTE.find(c => !used.has(c)) || PALETTE[allEvents.length % PALETTE.length];
+      let id; do { id = 'e' + Math.random().toString(36).slice(2, 9); } while (evById(id));
+      const ev = { id, name: w.name.replace(/^./, c => c.toUpperCase()), color, ...(w.unit === 'min' ? { unit: 'min' } : {}) };
+      allEvents = [...events, ev, ...allEvents.filter(e => e.archived)];
+      syncEvents(); maxSet[id] = 20; goals[id] = null;
+    }
+    for (const x of days) {
+      const ev = findEv(x.key); if (!ev) continue;
+      log = log.filter(e => !(e.ex === ev.id && e.d === x.d));
+      if (x.n > 0) log.push({ d: x.d, ex: ev.id, n: x.n, t: 0 });
+    }
+    log.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.t - b.t);
+    saveEvents(); save(); saveMax(); saveGoals();
+    buildCards(); render(); renderEditor(); renderMore(); toast(`Added ${days.length} day${days.length === 1 ? '' : 's'} to history`);
+  }
 
   // ---------- number dialog: goal or max per set ----------
   let dlgEx = null, dlgMode = 'goal';
