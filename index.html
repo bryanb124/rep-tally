@@ -414,6 +414,13 @@
   // Weekly goals (per: 'week') count everything from Sunday through the day in question.
   const isWeekly = id => !!(goals[id] && goals[id].per === 'week');
   const weekStart = d => shiftDay(d, -weekday(d));
+  // The whole Sun–Sat week containing d (through today for the current week) and that week's goal
+  function weekTotal(id, d, today = dayKey()) {
+    const start = weekStart(d), end = shiftDay(start, 6), last = end < today ? end : today;
+    let goal = 0;
+    for (let x = last; x >= start && !goal; x = shiftDay(x, -1)) goal = goalOn(id, x);  // latest goal recorded that week
+    return { sum: weekSum(id, last), goal };
+  }
   function weekSum(id, d, tot) {
     let sum = 0;
     for (let x = weekStart(d); x <= d; x = shiftDay(x, 1)) sum += tot ? (tot[x] || 0) : ((lastByDay[x] || {})[id] || 0);
@@ -697,8 +704,13 @@
     const b = el('button', 'day k' + events.length + (d === today ? ' today' : ''));
     b.dataset.d = d;
     for (const ev of events) {
-      const n = v[ev.id] || 0, g = goalOn(ev.id, d);
-      b.append(stripe(ev, n, g, isWeekly(ev.id) && n > 0 ? weekSum(ev.id, d) : n));
+      const n = v[ev.id] || 0;
+      if (isWeekly(ev.id)) {
+        // weekly goals: every day you logged that week shares the week's color,
+        // so once the week's goal is met, all the days that got you there turn green
+        const w = weekTotal(ev.id, d, today);
+        b.append(stripe(ev, n, w.goal, w.sum));
+      } else b.append(stripe(ev, n, goalOn(ev.id, d)));
     }
     b.append(el('span', 'dn', Number(d.slice(8))));
     b.setAttribute('aria-label', pretty(d) + ': ' + events.map(ev => `${v[ev.id] || 0} ${ev.name}`).join(', '));
@@ -738,8 +750,9 @@
         const r = el('div', 'pr' + (ev.archived ? ' gone' : '')), dot = el('i'); dot.style.background = ev.color;
         const n = v[ev.id] || 0, g = goalOn(ev.id, d), em = el('em', null, n);
         if (ev.unit === 'min') em.append(el('small', null, ' min'));
-        if (g && isWeekly(ev.id)) em.append(el('small', null, ` · wk ${weekSum(ev.id, d)}/${g}`));
-        else if (g) em.append(el('small', null, ' / ' + g));
+        const w = isWeekly(ev.id) ? weekTotal(ev.id, d) : null;
+        if (w && w.goal) em.append(el('small', null, ` · week ${w.sum}/${w.goal}${w.sum >= w.goal ? ' ✓' : ''}`));
+        else if (g && !w) em.append(el('small', null, ' / ' + g));
         r.append(dot, el('span', null, ev.name), em); rows.append(r);
       }
       pk.classList.add('show');
