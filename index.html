@@ -148,6 +148,23 @@
   #more-scroll h3 { margin: 0 0 6px; font-size: 14px; color: var(--dim); font-weight: 600; }
   #more-list { display: flex; flex-direction: column; gap: 14px; }
   #more-list .day { aspect-ratio: 1; }
+  #more-list .day.future { pointer-events: none; }
+  .hsub { font-weight: 500; color: var(--dim); opacity: .8; }
+  #more-earlier { width: 100%; min-height: 46px; margin-top: 14px; border-radius: 12px; background: var(--card); border: 2px dashed var(--line); font-weight: 700; font-size: 15px; }
+  #edlg { width: min(94vw, 380px); }
+  #edlg .erows { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 14px; max-height: 58vh; overflow-y: auto; }
+  #edlg .er { display: flex; align-items: center; gap: 8px; }
+  #edlg .er i { width: 12px; height: 12px; border-radius: 4px; flex: none; }
+  #edlg .er .en { flex: 1; min-width: 0; font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #edlg .er .en small { color: var(--dim); font-weight: 500; }
+  #edlg .er button { width: 38px; height: 38px; border-radius: 10px; background: var(--line); font-size: 20px; font-weight: 700; flex: none; }
+  #edlg .er input { width: 64px; font: inherit; font-size: 18px; font-weight: 700; text-align: center; color: var(--text); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 10px; padding: 7px 4px; -webkit-user-select: text; user-select: text; }
+  #edlg .er input.changed { border-color: var(--amber); }
+  #edlg .er .u { width: 26px; font-size: 12px; color: var(--dim); flex: none; }
+  #edlg .ebtns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  #edlg .ebtns button { min-height: 50px; border-radius: 12px; font-size: 16px; font-weight: 700; background: var(--line); }
+  #edlg .ebtns .ok { background: var(--text); color: var(--bg); }
   .evedit { background: var(--bg); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
   .evrow { display: flex; align-items: center; gap: 8px; }
   .evrow .dot { width: 14px; height: 14px; border-radius: 4px; flex: none; }
@@ -246,6 +263,8 @@
   <dialog id="more">
     <div class="hhead"><h2>More</h2><span class="cap" id="caption2"></span><button id="more-close">Done</button></div>
     <div id="more-scroll">
+      <div><h3>History <span class="hsub">· tap a day to edit</span></h3><div id="more-list"></div>
+        <button id="more-earlier">Show earlier month</button></div>
       <div class="evedit">
         <h3>Events</h3>
         <div id="ev-list"></div>
@@ -253,7 +272,6 @@
         <div id="ev-arch" hidden></div>
         <p class="hint">Reps events count reps; minutes events are for cardio or sports. Tap a name to rename it. ▲▼ change the order. "Max" is the most you want to do in one set. Up to 9 events. Removing an event keeps its history unless you choose to erase it.</p>
       </div>
-      <div><h3>History</h3><div id="more-list"></div></div>
     </div>
     <div class="peek" id="peek2" style="top:60px"></div>
     <div id="bk-status"></div>
@@ -283,6 +301,12 @@
     <div class="gl stack" id="g-wait-row">If I miss<div class="seg" id="g-wait"><button data-v="0">Keep climbing</button><button data-v="1">Wait for me</button></div></div>
     <div id="g-preview"></div>
     <div class="gbtns"><button id="g-clear">Clear</button><button id="g-cancel">Cancel</button><button class="ok" id="g-save">Save</button></div>
+  </dialog>
+
+  <dialog id="edlg">
+    <div id="ed-title" style="font-weight:700;font-size:18px"></div>
+    <div class="erows" id="ed-rows"></div>
+    <div class="ebtns"><button id="ed-cancel">Cancel</button><button class="ok" id="ed-save">Save</button></div>
   </dialog>
 
   <dialog id="dlg">
@@ -763,28 +787,88 @@
   $('peek').onclick = hideReveal; $('peek2').onclick = hideReveal;
 
   // ---------- More page: history older than the 5-week grid ----------
+  // Whole months, newest first, starting with this month. Shows back to the earliest logged month
+  // (at least 2 months); "Show earlier month" adds one more each tap.
+  let extraMonths = 0;
+  function monthsShown(today) {
+    const first = Object.keys(lastByDay).sort()[0] || today;
+    const [ty, tm] = today.split('-').map(Number), [fy, fm] = first.split('-').map(Number);
+    return Math.max(2, (ty - fy) * 12 + (tm - fm) + 1) + extraMonths;
+  }
   function renderMore() {
     const list = $('more-list'), today = dayKey();
     list.textContent = '';
-    const first = Object.keys(lastByDay).sort()[0];
-    const cutoff = shiftDay(gridStart(today), -1);
-    if (!first || first > cutoff) { list.append(el('div', 'empty', 'Nothing older than 5 weeks yet.')); return; }
-    const months = {};
-    for (let d = first; d <= cutoff; d = shiftDay(d, 1)) (months[d.slice(0, 7)] ??= []).push(d);
-    for (const m of Object.keys(months).sort().reverse()) {
+    const [ty, tm] = today.split('-').map(Number);
+    for (let k = 0; k < monthsShown(today); k++) {
+      const m0 = new Date(ty, tm - 1 - k, 1), days = [];
+      for (let d = dayKey(m0); d.slice(0, 7) === dayKey(m0).slice(0, 7); d = shiftDay(d, 1)) days.push(d);
       const sec = el('div');
-      const [y, mo] = m.split('-').map(Number);
-      const h = el('h3', null, new Date(y, mo - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }));
+      const h = el('h3', null, m0.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }));
       const grid = el('div', 'grid');
       gridMode(grid);
       weekHeader(grid);
-      for (let i = weekday(months[m][0]); i > 0; i--) grid.append(el('span', 'pad'));
-      for (const d of months[m]) grid.append(square(d, today));
+      for (let i = weekday(days[0]); i > 0; i--) grid.append(el('span', 'pad'));
+      for (const d of days) { const sq = square(d, today); if (d > today) sq.classList.add('future'); grid.append(sq); }
       sec.append(h, grid); list.append(sec);
     }
   }
-  $('more-list').addEventListener('click', e => { const sq = e.target.closest('.day'); if (sq) reveal(sq, 'caption2', 'peek2'); });
-  $('more-btn').onclick = () => { renderEditor(); renderMore(); bkStatus(); $('more').showModal(); $('more-scroll').scrollTop = 0; };
+  $('more-earlier').onclick = () => { extraMonths++; renderMore(); };
+  $('more-list').addEventListener('click', e => { const sq = e.target.closest('.day'); if (sq && !sq.classList.contains('future')) openDayEditor(sq.dataset.d); });
+  $('more-btn').onclick = () => { extraMonths = 0; renderEditor(); renderMore(); bkStatus(); $('more').showModal(); $('more-scroll').scrollTop = 0; };
+
+  // ---------- day editor: set any day's totals ----------
+  let edDay = null;
+  function dayTotal(id, d) { return (lastByDay[d] || {})[id] || 0; }
+  function openDayEditor(d) {
+    if (d > dayKey()) return;
+    edDay = d;
+    $('ed-title').textContent = pretty(d) + (d === dayKey() ? ' (today)' : '');
+    const rows = $('ed-rows'); rows.textContent = '';
+    // active events, plus removed ones that have something logged that day
+    for (const ev of allEvents.filter(e => !e.archived || dayTotal(e.id, d) > 0)) {
+      const r = el('div', 'er'); r.dataset.ex = ev.id;
+      const dot = el('i'); dot.style.background = ev.color;
+      const nm = el('span', 'en', ev.name); if (ev.archived) nm.append(el('small', null, ' (removed)'));
+      const minus = el('button', null, '−'), plus = el('button', null, '+');
+      minus.dataset.d = -1; plus.dataset.d = 1;
+      minus.setAttribute('aria-label', 'Less ' + ev.name); plus.setAttribute('aria-label', 'More ' + ev.name);
+      const inp = el('input'); inp.type = 'number'; inp.inputMode = 'numeric'; inp.min = 0; inp.max = 100000;
+      inp.value = dayTotal(ev.id, d); inp.dataset.orig = inp.value;
+      r.append(dot, nm, minus, inp, plus, el('span', 'u', ev.unit === 'min' ? 'min' : ''));
+      rows.append(r);
+    }
+    $('edlg').showModal();
+  }
+  $('ed-rows').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const inp = b.parentElement.querySelector('input');
+    inp.value = Math.max(0, Math.min(100000, (parseInt(inp.value, 10) || 0) + Number(b.dataset.d)));
+    inp.classList.toggle('changed', inp.value !== inp.dataset.orig);
+  });
+  $('ed-rows').addEventListener('input', e => { if (e.target.tagName === 'INPUT') e.target.classList.toggle('changed', e.target.value !== e.target.dataset.orig); });
+  $('ed-rows').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.target.blur(); });
+  $('ed-cancel').onclick = () => $('edlg').close();
+  $('ed-save').onclick = () => {
+    const d = edDay, today = dayKey(), now = Date.now();
+    let changed = 0;
+    for (const r of $('ed-rows').querySelectorAll('.er')) {
+      const id = r.dataset.ex, inp = r.querySelector('input');
+      const v = parseInt(inp.value, 10);
+      if (!Number.isInteger(v) || v < 0 || v > 100000) continue;
+      const cur = dayTotal(id, d);
+      if (v === cur) continue;
+      changed++;
+      if (d === today) log.push({ d, ex: id, n: v - cur, t: now });        // today: an adjustment, so Undo can take it back
+      else { log = log.filter(e => !(e.ex === id && e.d === d)); if (v > 0) log.push({ d, ex: id, n: v, t: 0 }); }
+    }
+    $('edlg').close();
+    if (!changed) return;
+    log.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.t - b.t);
+    const before = streakInfo.n;
+    save(); render(); renderMore();   // render() recounts the streak from the full history
+    const after = streakInfo.n;
+    toast(after > before ? `${pretty(d)} updated · streak now 🔥 ${after}` : after < before ? `${pretty(d)} updated · streak now ${after}` : `${pretty(d)} updated`);
+  };
   $('more-close').onclick = () => { hideReveal(); $('more').close(); };
 
   // ---------- More page: event editor ----------
