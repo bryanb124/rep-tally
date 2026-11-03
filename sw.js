@@ -1,8 +1,8 @@
 // Keeps a copy of the app on the phone so it opens with no signal.
 // The page itself is fetched fresh when there's a connection (so updates arrive),
 // falling back to the saved copy if the network is slow or missing.
-const CACHE = 'rep-tally-cache-v1';
-const FILES = ['./', './index.html', './manifest.json', './icon-180.png', './icon-512.png'];
+const CACHE = 'rep-tally-cache-v2';
+const FILES = ['./', './index.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png'];
 const NETWORK_WAIT_MS = 3000;
 
 self.addEventListener('install', e => {
