@@ -1,7 +1,7 @@
 // Keeps a copy of the app on the phone so it opens with no signal.
 // The page is fetched fresh when there's a connection (so updates arrive) and falls back to the saved copy.
 // Styles and code carry the version in their address, so a new page never runs with an old app.js.
-const VERSION = '2026.11.10.2';
+const VERSION = '2026.11.10.3';
 const CACHE = 'rep-tally-' + VERSION;
 const FILES = ['./', `app.css?v=${VERSION}`, `app.js?v=${VERSION}`, 'manifest.json', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 

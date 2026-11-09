@@ -282,15 +282,15 @@
     for (const ev of events) {
       const sec = el('section', 'ex' + (ev.unit === 'min' ? ' mins' : '')); sec.dataset.ex = ev.id; sec.style.setProperty('--c', ev.color);
       const sets = el('button', 'sets'); sets.setAttribute('aria-label', 'Sets; tap to change max per set');
-      const done = el('button', 'doneset'); done.hidden = true;
-      const sl = el('div', 'setline'); sl.append(sets, done);
+      const done = el('button', 'add doneset'); done.hidden = true;     // "✓25": logs the next planned set
+      const sl = el('div', 'setline'); sl.append(sets);
       const title = el('div', 'title'); title.append(el('span', 'ic', iconOf(ev)), el('span', 'nm', ev.name));
       const lhs = el('div', 'lhs'); lhs.append(title, sl);
       const cnt = el('span', 'cnt'); cnt.append(el('span', 'total', '0'), el('span', 'unit', 'today'));
       const goal = el('button', 'goal'); goal.setAttribute('aria-label', 'Set daily goal'); goal.append(cnt, el('span', 'alltime'));
       const top = el('div', 'top'); top.append(lhs, goal);
       const bar = el('div', 'bar'); bar.append(el('i'));
-      const row = el('div', 'row');
+      const row = el('div', 'row'); row.append(done);
       for (const n of btnsOf(ev)) { const b = el('button', 'add', '+' + n); b.dataset.n = n; row.append(b); }
       const minus = el('button', 'add minus', '−1'); minus.dataset.n = -1; minus.setAttribute('aria-label', 'Minus 1'); row.append(minus);
       sec.append(top, bar, row);
@@ -301,8 +301,8 @@
   $('events').addEventListener('click', e => {
     const b = e.target.closest('button'), sec = b && b.closest('.ex'); if (!sec) return;   // (the suggestion banner handles its own buttons)
     const id = sec.dataset.ex, c = b.classList;
-    if (c.contains('add')) add(id, parseInt(b.dataset.n, 10));
-    else if (c.contains('doneset')) add(id, parseInt(b.dataset.n, 10), true);
+    if (c.contains('doneset')) add(id, parseInt(b.dataset.n, 10), true);
+    else if (c.contains('add')) add(id, parseInt(b.dataset.n, 10));
     else if (c.contains('goal')) openGoal(id);
     else if (c.contains('sets')) openMax(id);
   });
@@ -322,7 +322,7 @@
       // sets already done (what you actually did), then the rest of the goal re-planned
       const done = setsDone(ev.id, today), plan = splitSets(Math.max(0, g - n), maxSet[ev.id]);
       if (plan.length) {                                    // one tap logs the next planned set
-        doneBtn.hidden = false; doneBtn.dataset.n = plan[0]; doneBtn.textContent = '✓ ' + plan[0];
+        doneBtn.hidden = false; doneBtn.dataset.n = plan[0]; doneBtn.textContent = '✓' + plan[0];
         doneBtn.setAttribute('aria-label', `Log a set of ${plan[0]} ${ev.name}`);
       }
       setsEl.append('(');
@@ -332,6 +332,7 @@
       });
       setsEl.append(')');
     }
+    sec.querySelector('.row').classList.toggle('with-set', !doneBtn.hidden);
     sec.querySelector('.minus').disabled = dayN <= 0;
     sec.classList.remove('lo', 'mid', 'hit', 'has-goal');
     const unit = sec.querySelector('.unit');
