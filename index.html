@@ -242,6 +242,41 @@
     body:not(.compact) .total { font-size: 44px; }
     body:not(.compact) .add { min-height: 50px; font-size: 20px; }
   }
+  /* ---- landscape phones: cards on the left, calendar on the right ---- */
+  @media (orientation: landscape) and (max-height: 600px) {
+    body { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr);
+      column-gap: 12px; row-gap: 8px;
+      padding: calc(env(safe-area-inset-top) + 8px) calc(env(safe-area-inset-right) + 12px)
+               calc(env(safe-area-inset-bottom) + 8px) calc(env(safe-area-inset-left) + 12px); }
+    header { grid-column: 1 / -1; }
+    body #events, body.compact #events { grid-column: 1; grid-row: 2; gap: 8px; min-height: 0; height: 100%; }
+    body .ex, body.compact .ex, body:not(.compact) .ex { flex: none; padding: 10px 12px; gap: 8px; border-radius: 16px; }
+    body .nm, body.compact .nm { font-size: 17px; }
+    body .lhs, body.compact .lhs { gap: 2px; }
+    body .sets, body.compact .sets { font-size: 12px; }
+    body .total, body.compact .total, body:not(.compact) .total { font-size: 32px; }
+    body .unit, body.compact .unit { font-size: 12px; }
+    body .alltime, body.compact .alltime { font-size: 11px; margin-top: 1px; }
+    body .bar, body.compact .bar { height: 4px; }
+    body .row, body.compact .row { flex: none; max-height: none; gap: 6px; }
+    body .add, body.compact .add, body:not(.compact) .add { min-height: 44px; font-size: 18px; border-radius: 11px; }
+    body #history, body.compact #history { grid-column: 2; grid-row: 2; min-height: 0; height: 100%; flex: none; padding: 8px 12px 8px; gap: 4px; }
+    .hhead { min-height: 28px; }
+    /* calendar fills the panel's height; width follows from 7 columns x 5.5 rows */
+    body .gwrap, body.compact .gwrap { flex: 1 1 auto; min-height: 0; height: auto;
+      width: calc((100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 130px) * 7 / 5.5); }
+    .legend { font-size: 10px; gap: 6px; flex-wrap: wrap; row-gap: 2px; max-width: 100%; }
+    #legend-txt { display: none; }
+    .peek { left: 8px; right: 8px; top: 40px; }
+    #more-scroll { gap: 14px; }
+    #more-list .grid { max-width: 420px; }
+    #gdlg { width: min(94vw, 560px); padding: 14px 18px; }
+    #gdlg .gl { margin-top: 8px; }
+    #gdlg .gl.stack { flex-direction: row; align-items: center; justify-content: space-between; }
+    #gdlg .gl.stack .seg button { flex: none; }
+    #gdlg #g-n { font-size: 22px; padding: 6px 10px; }
+    #g-preview { margin-top: 8px; min-height: 0; }
+  }
 </style>
 </head>
 <body>
