@@ -50,6 +50,11 @@
   .nm { font-size: 21px; font-weight: 750; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .sets { background: none; padding: 0; font-size: 14px; font-weight: 600; color: var(--dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .sets:empty { display: none; }
+  .setline { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .doneset { flex: none; border: 1.5px solid var(--c); color: var(--text); background: color-mix(in srgb, var(--c) 18%, transparent);
+    border-radius: 999px; padding: 5px 11px; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .doneset:active { transform: scale(.95); }
+  .doneset[hidden] { display: none; }
   .cnt { display: flex; align-items: baseline; justify-content: flex-end; }
   .sets .s.done { opacity: .35; text-decoration: line-through; }
   .sets .s.next { color: var(--text); }
@@ -93,6 +98,7 @@
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .cap b { color: var(--text); }
   .cap .k { color: var(--text); font-weight: 600; }
+  #stats-btn { background: transparent; border: 1.5px solid var(--line); border-radius: 999px; padding: 5px 12px; font-size: 14px; font-weight: 700; white-space: nowrap; }
   #more-btn { background: var(--line); border-radius: 999px; padding: 6px 14px; font-size: 14px; font-weight: 700; white-space: nowrap; }
   .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
   .wk { font-size: 11px; font-weight: 600; color: var(--dim); text-align: center; align-self: end; }
@@ -104,7 +110,7 @@
   /* each date box is a small grid: one cell per event, filled left to right, top to bottom */
   .day { position: relative; display: grid; grid-template-columns: repeat(6, 1fr); grid-auto-rows: 1fr; gap: 2px;
     border-radius: 9px; overflow: hidden; padding: 0; background: var(--card); min-height: 0; }
-  .day .h { grid-column: span 6; min-height: 0; min-width: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800;
+  .day .h { position: relative; grid-column: span 6; min-height: 0; min-width: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800;
     color: transparent; font-variant-numeric: tabular-nums; transition: color .15s; line-height: 1; overflow: hidden; }
   .k3 .h:nth-child(-n+2), .k4 .h, .k5 .h:nth-child(-n+4) { grid-column: span 3; }   /* 2 across */
   .k6 .h, .k7 .h:nth-child(-n+6), .k8 .h:nth-child(-n+6), .k9 .h { grid-column: span 2; }  /* 3 across */
@@ -122,6 +128,12 @@
   .day.future .dn { color: var(--dim) !important; text-shadow: none !important; background: none !important; opacity: .7; }
   .h.none { background: #262c35; }
   .h.lo { background: var(--red); } .h.mid { background: var(--amber); } .h.hit { background: var(--green); }
+  /* a check on goal-hit boxes, so "hit" never depends on telling red from green */
+  .h.hit::after { content: '✓'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: rgba(17,20,24,.55); font-size: 14px; font-weight: 900; pointer-events: none; }
+  .boxed .h.hit::after { font-size: 10px; align-items: flex-end; justify-content: flex-end; padding: 0 3px 1px 0; }
+  .nums .day.show .h.hit::after { display: none; }
+  .day.future .h::after { display: none; }
   #history, #more { position: relative; }
   .peek { position: absolute; left: 14px; right: 14px; top: 48px; z-index: 5; background: #252b34; border: 1px solid var(--line);
     border-radius: 14px; padding: 10px 12px; box-shadow: 0 8px 24px rgba(0,0,0,.4); display: none; }
@@ -152,6 +164,29 @@
   .hsub { font-weight: 500; color: var(--dim); opacity: .8; }
   #more-earlier { width: 100%; min-height: 46px; margin-top: 14px; border-radius: 12px; background: var(--card); border: 2px dashed var(--line); font-weight: 700; font-size: 15px; }
   #edlg { width: min(94vw, 380px); }
+  #sdlg { width: min(94vw, 440px); padding: 14px 16px 16px; }
+  #sdlg[open] { display: flex; flex-direction: column; gap: 12px; }
+  #st-close { background: var(--line); border-radius: 10px; padding: 8px 14px; font-weight: 700; }
+  #st-streak { display: flex; gap: 8px; }
+  #st-streak div { flex: 1; background: var(--bg); border-radius: 12px; padding: 10px 12px; }
+  #st-streak b { display: block; font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  #st-streak span, .tile span { font-size: 12px; color: var(--dim); font-weight: 600; }
+  #st-ev { display: flex; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+  #st-ev button { flex: none; border-radius: 999px; padding: 7px 12px; font-size: 14px; font-weight: 700; background: var(--bg); color: var(--dim);
+    border: 1.5px solid transparent; display: flex; align-items: center; gap: 6px; }
+  #st-ev button i { width: 9px; height: 9px; border-radius: 3px; }
+  #st-ev button[aria-pressed="true"] { color: var(--text); border-color: var(--line); background: var(--line); }
+  #st-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tile { background: var(--bg); border-radius: 12px; padding: 9px 10px; min-width: 0; }
+  .tile b { display: block; font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile small { display: block; font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #st-chart-h { display: flex; justify-content: space-between; font-size: 12px; color: var(--dim); font-weight: 600; margin-bottom: -6px; }
+  #st-tip { color: var(--text); }
+  #st-chart svg { display: block; width: 100%; height: auto; }
+  #st-chart .lbl { fill: var(--dim); font-size: 10px; font-weight: 600; }
+  #st-chart .val { fill: var(--text); font-size: 11px; font-weight: 700; }
+  #st-chart .hit { fill: transparent; cursor: pointer; }
+  #st-chart .wbar { transition: opacity .15s; } #st-chart.has-sel .wbar:not(.sel) { opacity: .4; }
   #edlg .erows { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 14px; max-height: 58vh; overflow-y: auto; }
   #edlg .er { display: flex; align-items: center; gap: 8px; }
   #edlg .er i { width: 12px; height: 12px; border-radius: 4px; flex: none; }
@@ -180,6 +215,10 @@
   .evrow .evmax { width: 54px; padding: 10px 4px; text-align: center; }
   .evrow label { gap: 4px; }
   #ev-arch { display: flex; flex-direction: column; gap: 6px; }
+  #ev-list .evrow.evbtns { margin: -2px 0 10px 22px; gap: 6px; }
+  .evbtns .bl { font-size: 12px; color: var(--dim); font-weight: 600; flex: none; }
+  .evbtns .bl:first-child { width: 52px; }
+  .evrow .evbtn { width: 0; flex: 1; max-width: 58px; padding: 7px 2px; text-align: center; font-size: 15px; font-weight: 700; }
   #ev-arch h4 { margin: 6px 0 0; font-size: 13px; color: var(--dim); font-weight: 600; }
   .evrow.gone .gname { flex: 1; color: var(--dim); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .evrow.gone .gname small { font-weight: 400; }
@@ -203,12 +242,18 @@
   #bk-status { font-size: 13px; color: var(--dim); text-align: center; flex: none; }
   #bk-status.warn { color: var(--amber); }
   #ver { font-size: 12px; color: var(--dim); text-align: center; flex: none; }
+  #csv-btn { background: none; padding: 4px 2px; font-size: 12px; font-weight: 700; color: var(--text); text-decoration: underline; }
   #ver-btn { background: none; padding: 4px 2px; font-size: 12px; font-weight: 700; color: var(--text); text-decoration: underline; }
   .empty { color: var(--dim); padding: 6px 0; font-size: 15px; }
 
   #toast { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 10px); transform: translateX(-50%) translateY(-20px);
     background: #2d3540; padding: 10px 18px; border-radius: 999px; font-weight: 600; opacity: 0; transition: .2s; pointer-events: none; z-index: 10; width: max-content; max-width: 92vw; text-align: center; }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #cele { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 56px); transform: translateX(-50%) scale(.9); z-index: 11;
+    background: #2d3540; border: 2px solid var(--amber); border-radius: 18px; padding: 12px 18px; text-align: center; font-weight: 700;
+    font-size: 16px; line-height: 1.35; width: max-content; max-width: 90vw; opacity: 0; pointer-events: none; transition: .25s; box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+  #cele b { display: block; font-size: 28px; }
+  #cele.show { opacity: 1; transform: translateX(-50%) scale(1); }
   dialog { background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 20px; padding: 18px; width: min(90vw, 340px); }
   dialog::backdrop { background: rgba(0,0,0,.6); }
   #dlg input { width: 100%; font-size: 32px; font-weight: 700; text-align: center; padding: 12px; border-radius: 12px;
@@ -290,7 +335,7 @@
   <main id="events"></main>
 
   <section id="history">
-    <div class="hhead"><h2>Last 5 weeks</h2><span class="cap" id="caption"></span><button id="more-btn">More</button></div>
+    <div class="hhead"><h2>Last 5 weeks</h2><span class="cap" id="caption"></span><button id="stats-btn">Stats</button><button id="more-btn">More</button></div>
     <div class="gwrap"><div class="grid" id="grid30"></div></div>
     <div class="peek" id="peek"></div>
     <div class="legend"><span id="legend-txt"></span>
@@ -312,8 +357,8 @@
     </div>
     <div class="peek" id="peek2" style="top:60px"></div>
     <div id="bk-status"></div>
-    <div id="ver"><span id="ver-txt"></span> · <button id="ver-btn">Check for update</button></div>
-    <div class="bk"><button class="primary" id="bk-save">Back up to iCloud</button><button id="bk-load">Restore</button></div>
+    <div id="ver"><button id="csv-btn">Export spreadsheet (CSV)</button> · <span id="ver-txt"></span> · <button id="ver-btn">Check for update</button></div>
+    <div class="bk"><button class="primary" id="bk-save">Back up</button><button id="bk-load">Restore</button></div>
     <input type="file" id="bk-file" accept="application/json,.json" hidden>
   </dialog>
 
@@ -341,6 +386,15 @@
     <div class="gbtns"><button id="g-clear">Clear</button><button id="g-cancel">Cancel</button><button class="ok" id="g-save">Save</button></div>
   </dialog>
 
+  <dialog id="sdlg">
+    <div class="hhead"><h2>Stats</h2><button id="st-close">Done</button></div>
+    <div id="st-streak"></div>
+    <div class="seg" id="st-ev"></div>
+    <div id="st-tiles"></div>
+    <div id="st-chart-h"><span>Last 12 weeks</span><span id="st-tip"></span></div>
+    <div id="st-chart"></div>
+  </dialog>
+
   <dialog id="edlg">
     <div id="ed-title" style="font-weight:700;font-size:18px"></div>
     <div class="erows" id="ed-rows"></div>
@@ -354,6 +408,7 @@
   </dialog>
 
   <div id="toast"></div>
+  <div id="cele" role="status" aria-live="polite"></div>
 
 <script>
 (() => {
@@ -401,7 +456,8 @@
       if (!archived && active >= MAX_EVENTS) archived = true;
       if (!archived) active++;
       seen.add(e.id); out.push({ id: e.id, name, color: okColor(e.color) ? e.color : PALETTE[out.length % PALETTE.length],
-        ...(e.unit === 'min' ? { unit: 'min' } : {}), ...(archived ? { archived: true } : {}) });
+        ...(e.unit === 'min' ? { unit: 'min' } : {}), ...(archived ? { archived: true } : {}),
+        ...(Array.isArray(e.buttons) && e.buttons.length === 4 && e.buttons.every(x => Number.isInteger(x) && x >= 1 && x <= 1000) ? { buttons: e.buttons.slice() } : {}) });
       if (out.length === 40) break;
     }
     return active ? out : null;
@@ -466,6 +522,7 @@
   const nameOf = id => (evById(id) || { name: '?' }).name;
   // 'min' events count minutes (cardio, sports); everything else counts reps
   const isMin = id => (evById(id) || {}).unit === 'min';
+  const btnsOf = ev => ev.buttons || (ev.unit === 'min' ? [30, 15, 5, 1] : [20, 10, 5, 1]);
   const amount = (id, n) => isMin(id) ? `${n} min` : String(n);
   function fmtMinutes(m) {
     if (Math.abs(m) < 60) return m + ' min';
@@ -592,14 +649,16 @@
       const top = el('div', 'top');
       const lhs = el('div', 'lhs'); lhs.append(el('span', 'nm', ev.name));
       const sets = el('button', 'sets'); sets.dataset.ex = ev.id; sets.setAttribute('aria-label', 'Sets; tap to change max per set');
-      lhs.append(sets);
+      const done = el('button', 'doneset'); done.hidden = true;
+      const sl = el('div', 'setline'); sl.append(sets, done);
+      lhs.append(sl);
       const goal = el('button', 'goal'); goal.dataset.ex = ev.id; goal.setAttribute('aria-label', 'Set daily goal');
       const cnt = el('span', 'cnt'); cnt.append(el('span', 'total', '0'), el('span', 'unit', 'today'));
       goal.append(cnt, el('span', 'alltime'));
       top.append(lhs, goal);
       const bar = el('div', 'bar'); bar.append(el('i'));
       const row = el('div', 'row');
-      for (const n of ev.unit === 'min' ? [30, 15, 5, 1] : [20, 10, 5, 1]) { const b = el('button', 'add', '+' + n); b.dataset.n = n; row.append(b); }
+      for (const n of btnsOf(ev)) { const b = el('button', 'add', '+' + n); b.dataset.n = n; row.append(b); }
       if (ev.unit === 'min') sec.classList.add('mins');
       const minus = el('button', 'add minus', '−1'); minus.dataset.n = -1; minus.setAttribute('aria-label', 'Minus 1'); row.append(minus);
       sec.append(top, bar, row);
@@ -613,6 +672,7 @@
     const b = e.target.closest('button'); if (!b) return;
     const id = b.closest('.ex').dataset.ex;
     if (b.classList.contains('add')) add(id, parseInt(b.dataset.n, 10));
+    else if (b.classList.contains('doneset')) add(id, parseInt(b.dataset.n, 10), true);
     else if (b.classList.contains('goal')) openGoal(id);
     else if (b.classList.contains('sets')) openMax(id);
   });
@@ -632,11 +692,13 @@
     return groups.filter(x => x > 0);
   }
   function todayTotal(id) { const d = dayKey(); return log.reduce((s, e) => s + (e.d === d && e.ex === id ? e.n : 0), 0); }
-  function add(id, n) {
+  function add(id, n, asSet) {
     if (!isActive(id) || !Number.isInteger(n) || n === 0 || Math.abs(n) > 1000) return;
     if (n < 0 && todayTotal(id) + n < 0) return; // never go below zero
     log.push({ d: dayKey(), ex: id, n, t: Date.now() });
-    save(); render(); toast(`${n > 0 ? '+' : '−'}${amount(id, Math.abs(n))} ${nameOf(id).toLowerCase()}`);
+    save(); render();
+    toast(asSet ? `Set done: ${n} ${nameOf(id).toLowerCase()}` : `${n > 0 ? '+' : '−'}${amount(id, Math.abs(n))} ${nameOf(id).toLowerCase()}`);
+    if (n > 0) checkMilestones(false);
     if (navigator.vibrate) navigator.vibrate(15);
   }
   function undo() {
@@ -669,10 +731,17 @@
       sec.querySelector('.alltime').textContent = (weekly ? `${fmt(dayN)} today · ` : '') + fmt(at) + ' all-time';
       const setsEl = sec.querySelector('.sets');
       setsEl.textContent = '';
+      const doneBtn = sec.querySelector('.doneset');
+      doneBtn.hidden = true;
       if (g && !mins && !weekly) {
         // sets already done (what you actually did), then the rest of the goal re-planned
         const done = setsDone(ev.id, today);
         const plan = splitSets(Math.max(0, g - n), maxSet[ev.id]);
+        if (plan.length) {   // one tap logs the next planned set
+          doneBtn.hidden = false; doneBtn.dataset.n = plan[0];
+          doneBtn.textContent = '✓ ' + plan[0];
+          doneBtn.setAttribute('aria-label', `Log a set of ${plan[0]} ${ev.name}`);
+        }
         setsEl.append('(');
         [...done.map(r => ['done', r]), ...plan.map((r, i) => [i ? '' : 'next', r])].forEach(([cls, r], i) => {
           if (i) setsEl.append('+');
@@ -742,10 +811,120 @@
     b.textContent = '🔥 ' + n;
     b.classList.toggle('zero', n === 0);
   }
-  $('streak').onclick = () => {
-    const { n, todayDone } = streakInfo;
-    toast(todayDone ? `${n}-day streak, today done ✓` : n ? `${n}-day streak · hit today's goals for ${n + 1}` : "Hit today's goals to start a streak");
-  };
+  $('streak').onclick = () => openStats();
+
+  // ---------- longest streak, stats sheet ----------
+  function longestStreak(today = dayKey()) {
+    const first = Object.keys(lastByDay).sort()[0];
+    if (!first) return 0;
+    let best = 0, run = 0;
+    for (let d = first; d <= today; d = shiftDay(d, 1)) {
+      if (dayDone(d, today)) { run++; if (run > best) best = run; }
+      else if (d !== today) run = 0;
+    }
+    return best;
+  }
+  let stEv = null;
+  function openStats() {
+    if (!evById(stEv) || evById(stEv).archived) stEv = events[0].id;
+    renderStats(); $('sdlg').showModal();
+  }
+  function renderStats() {
+    const today = dayKey(), ev = evById(stEv), mins = ev.unit === 'min';
+    const fmt = x => mins ? fmtMinutes(x) : x.toLocaleString();
+    $('st-streak').innerHTML = '';
+    for (const [k, v] of [['Current streak', '🔥 ' + streakInfo.n], ['Longest streak', '🏆 ' + longestStreak(today)]]) {
+      const d = el('div'); d.append(el('span', null, k), el('b', null, v)); $('st-streak').append(d);
+    }
+    const seg = $('st-ev'); seg.textContent = '';
+    for (const e of events) {
+      const b = el('button'); b.dataset.ex = e.id; b.setAttribute('aria-pressed', String(e.id === stEv));
+      const dot = el('i'); dot.style.background = e.color; b.append(dot, e.name); seg.append(b);
+    }
+    // per-day totals for this event
+    const tot = totalsFor(ev.id), days = Object.keys(tot).filter(d => tot[d] > 0).sort();
+    const sumRange = (a, b) => { let s = 0; for (let d = a; d <= b; d = shiftDay(d, 1)) s += tot[d] || 0; return s; };
+    const ws = weekStart(today), ms = today.slice(0, 8) + '01';
+    let bestD = null; for (const d of days) if (!bestD || tot[d] > tot[bestD]) bestD = d;
+    const allT = days.reduce((s, d) => s + tot[d], 0);
+    const spanDays = days.length ? daysBetween(days[0], today) + 1 : 0;
+    const tiles = [
+      ['This week', fmt(sumRange(ws, today)), ''],
+      ['Last week', fmt(sumRange(shiftDay(ws, -7), shiftDay(ws, -1))), ''],
+      ['This month', fmt(sumRange(ms, today)), ''],
+      ['Best day', bestD ? fmt(tot[bestD]) : '–', bestD ? pretty(bestD) : ''],
+      ['Daily average', spanDays ? fmt(Math.round(allT / spanDays)) : '–', spanDays ? `over ${spanDays} days` : ''],
+      ['All-time', fmt(allT), days.length ? `${days.length} active days` : ''],
+    ];
+    const tl = $('st-tiles'); tl.textContent = '';
+    for (const [k, v, sub] of tiles) { const t = el('div', 'tile'); t.append(el('span', null, k), el('b', null, v)); if (sub) t.append(el('small', null, sub)); tl.append(t); }
+    // last 12 Sun–Sat weeks as bars in the event's color; tap a bar for its total
+    const weeks = []; for (let k = 11; k >= 0; k--) { const a = shiftDay(ws, -7 * k), b = shiftDay(a, 6); weeks.push({ a, v: sumRange(a, b < today ? b : today) }); }
+    const W = 340, H = 150, top = 16, base = 128, gap = 6, bw = (W - gap * 11) / 12;
+    const max = Math.max(1, ...weeks.map(w => w.v));
+    const NS = 'http://www.w3.org/2000/svg', mk = (t, a) => { const n = document.createElementNS(NS, t); for (const k in a) n.setAttribute(k, a[k]); return n; };
+    const svg = mk('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': `${ev.name}, weekly totals for the last 12 weeks` });
+    svg.append(mk('line', { x1: 0, x2: W, y1: base + .5, y2: base + .5, stroke: 'var(--line)', 'stroke-width': 1 }));
+    weeks.forEach((w, i) => {
+      const x = i * (bw + gap), h = w.v ? Math.max(3, (w.v / max) * (base - top)) : 0, y = base - h, r = Math.min(4, bw / 2, h);
+      if (h) svg.append(mk('path', { class: 'wbar', 'data-i': i, fill: ev.color,
+        d: `M${x},${base} V${y + r} Q${x},${y} ${x + r},${y} H${x + bw - r} Q${x + bw},${y} ${x + bw},${y + r} V${base} Z` }));
+      if (i === 11 || (w.v && w.v === max)) { const t = mk('text', { class: 'val', x: x + bw / 2, y: y - 4, 'text-anchor': 'middle' }); t.textContent = mins ? fmtMinutes(w.v).replace(' min', 'm') : w.v; svg.append(t); }
+      if (i % 4 === 3 || i === 0) { const t = mk('text', { class: 'lbl', x: i === 0 ? x : i === 11 ? x + bw : x + bw / 2, y: H - 6, 'text-anchor': i === 0 ? 'start' : i === 11 ? 'end' : 'middle' });
+        t.textContent = i === 11 ? 'This wk' : new Date(...w.a.split('-').map((n, j) => j === 1 ? n - 1 : +n)).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); svg.append(t); }
+      const hit = mk('rect', { class: 'hit', x: x - gap / 2, y: 0, width: bw + gap, height: base, 'data-i': i }); svg.append(hit);
+    });
+    const ch = $('st-chart'); ch.textContent = ''; ch.classList.remove('has-sel'); ch.append(svg); $('st-tip').textContent = '';
+    ch.onclick = e => {
+      const i = e.target.dataset && e.target.dataset.i; if (i == null) return;
+      const w = weeks[i], end = shiftDay(w.a, 6);
+      ch.classList.add('has-sel');
+      for (const b of svg.querySelectorAll('.wbar')) b.classList.toggle('sel', b.dataset.i === String(i));
+      $('st-tip').textContent = `${pretty(w.a).replace(/^\w+, /, '')} – ${pretty(end).replace(/^\w+, /, '')}: ${fmt(w.v)}`;
+    };
+  }
+  $('st-ev').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { stEv = b.dataset.ex; renderStats(); } });
+  $('st-close').onclick = () => $('sdlg').close();
+  $('stats-btn').onclick = openStats;
+
+  // ---------- milestones: celebrate new records once; anything already achieved is marked silently ----------
+  const RKEY = 'rep-tally-records-v1';
+  let records = (() => { const r = read(RKEY, null); return r && typeof r === 'object' && r.seen ? r : { seen: {}, longest: 0, init: false }; })();
+  const REPS_MARKS = [100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000];
+  const HOUR_MARKS = [10, 25, 50, 100, 250, 500, 1000];
+  function checkMilestones(silent) {
+    const today = dayKey(), found = [];
+    silent = silent || !records.init;
+    for (const ev of events) {
+      const tot = totalsFor(ev.id), mins = ev.unit === 'min';
+      const all = Object.values(tot).reduce((a, b) => a + b, 0);
+      for (const m of mins ? HOUR_MARKS.map(h => h * 60) : REPS_MARKS) {
+        const key = `at:${ev.id}:${m}`;
+        if (all >= m && !records.seen[key]) { records.seen[key] = 1; found.push(`${mins ? m / 60 + ' hours of' : m.toLocaleString()} ${ev.name.toLowerCase()} all-time!`); }
+      }
+      const t = tot[today] || 0;
+      let prev = 0; for (const [d, v] of Object.entries(tot)) if (d !== today && v > prev) prev = v;
+      const key = `best:${ev.id}:${today}`;
+      if (prev > 0 && t > prev && !records.seen[key]) { records.seen[key] = 1; found.push(`New best day: ${amount(ev.id, t)} ${ev.name.toLowerCase()} (was ${amount(ev.id, prev)})`); }
+    }
+    const longest = longestStreak(today);
+    if (longest > (records.longest || 0)) {
+      if (longest >= 3 && streakInfo.n === longest && (records.longest || 0) > 0) found.push(`New longest streak: ${longest} days!`);
+      records.longest = longest;
+    }
+    records.init = true;
+    write(RKEY, records);
+    if (!silent && found.length) celebrate(found);
+  }
+  let celeTimer;
+  function celebrate(msgs) {
+    const c = $('cele'); c.textContent = '';
+    c.append(el('b', null, '🎉'));
+    for (const m of msgs.slice(0, 3)) c.append(el('div', null, m));
+    c.classList.add('show'); clearTimeout(celeTimer);
+    celeTimer = setTimeout(() => c.classList.remove('show'), 4000);
+    if (navigator.vibrate) navigator.vibrate([20, 60, 20]);
+  }
 
   // ---------- calendar squares ----------
   const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -904,6 +1083,7 @@
     log.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.t - b.t);
     const before = streakInfo.n;
     save(); render(); renderMore();   // render() recounts the streak from the full history
+    checkMilestones(true);
     const after = streakInfo.n;
     toast(after > before ? `${pretty(d)} updated · streak now 🔥 ${after}` : after < before ? `${pretty(d)} updated · streak now ${after}` : `${pretty(d)} updated`);
   };
@@ -929,6 +1109,15 @@
       const del = el('button', 'evdel', '✕'); del.setAttribute('aria-label', 'Remove ' + ev.name);
       row.append(dot, name, lab, mv, del);
       list.append(row);
+      const br = el('div', 'evrow evbtns'); br.dataset.ex = ev.id;
+      br.append(el('span', 'bl', 'Buttons'));
+      btnsOf(ev).forEach((v, k) => {
+        const inp = el('input', 'evbtn'); inp.type = 'number'; inp.inputMode = 'numeric'; inp.min = 1; inp.max = 1000;
+        inp.value = v; inp.dataset.k = k; inp.setAttribute('aria-label', `${ev.name} button ${k + 1}`);
+        br.append(inp);
+      });
+      br.append(el('span', 'bl', ev.unit === 'min' ? 'min' : ''));
+      list.append(br);
     }
     const full = events.length >= MAX_EVENTS;
     $('ev-add').disabled = $('ev-add-min').disabled = full;
@@ -970,6 +1159,10 @@
       const v = e.target.value.trim().slice(0, 20);
       if (!v) { e.target.value = ev.name; return; }
       ev.name = v; saveEvents(); buildCards(); render(); toast('Renamed to ' + v);
+    } else if (e.target.classList.contains('evbtn')) {
+      const n = parseInt(e.target.value, 10), b = btnsOf(ev).slice(), k = Number(e.target.dataset.k);
+      if (!Number.isInteger(n) || n < 1 || n > 1000) { e.target.value = b[k]; return; }
+      b[k] = n; ev.buttons = b; saveEvents(); buildCards(); render(); toast(`${ev.name} buttons: ${b.map(x => '+' + x).join(' ')}`);
     } else if (e.target.classList.contains('evmax')) {
       const n = parseInt(e.target.value, 10);
       if (!Number.isInteger(n) || n < 1 || n > 1000) { e.target.value = maxSet[ev.id]; return; }
@@ -1052,6 +1245,27 @@
   function renderNudge() { $('bk-nudge').hidden = !(log.length && backupAge() >= 7); }
   $('bk-nudge').onclick = () => doBackup();
   $('bk-save').onclick = () => doBackup();
+  async function shareFile(file, okMsg) {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file] }); toast(okMsg); return true; }
+      catch (e) { if (e && e.name !== 'AbortError') toast('Export failed'); return false; }
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(file); a.download = file.name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000); toast(okMsg); return true;
+  }
+  // One row per day with anything logged, one column per event (removed events included if they have history)
+  $('csv-btn').onclick = () => {
+    const cols = allEvents.filter(e => log.some(x => x.ex === e.id));
+    const q = v => /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+    const lines = [['Date', ...cols.map(e => e.name + (e.unit === 'min' ? ' (min)' : ''))].map(q).join(',')];
+    for (const d of Object.keys(lastByDay).sort()) {
+      const v = lastByDay[d];
+      if (!cols.some(e => v[e.id])) continue;
+      lines.push([d, ...cols.map(e => v[e.id] || 0)].join(','));
+    }
+    shareFile(new File([lines.join('\n') + '\n'], `rep-tally-${dayKey()}.csv`, { type: 'text/csv' }), 'Spreadsheet exported');
+  };
   async function doBackup() {
     const data = { app: 'rep-tally', v: 2, saved: new Date().toISOString(), events: allEvents, log, goals, dayGoals, maxSet };
     const name = `rep-tally-backup-${dayKey()}.json`;
@@ -1087,6 +1301,7 @@
     goals = cleanGoals(data.goals, allEvents); maxSet = cleanMax(data.maxSet, allEvents); dayGoals = cleanDayGoals(data.dayGoals);
     saveEvents(); save(); saveGoals(); saveMax(); saveDayGoals();
     buildCards(); render(); renderEditor(); renderMore(); toast('Restored');
+    checkMilestones(true);
   };
 
   // ---------- "add to history" files: set an event's total on past days, matched by event name ----------
@@ -1126,6 +1341,7 @@
     log.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.t - b.t);
     saveEvents(); save(); saveMax(); saveGoals();
     buildCards(); render(); renderEditor(); renderMore(); toast(`Added ${days.length} day${days.length === 1 ? '' : 's'} to history`);
+    checkMilestones(true);
   }
 
   // ---------- number dialog: goal or max per set ----------
@@ -1214,12 +1430,13 @@
   document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
   buildCards();
   render();
+  checkMilestones(true);
 
   // Offline: keep a copy of the app on the phone so it opens without signal.
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {});
 
   // Version shown on the More page; "Check for update" fetches the latest page and reloads if it changed.
-  const APP_VERSION = '2026.11.09';
+  const APP_VERSION = '2026.11.09.2';
   $('ver-txt').textContent = 'Version ' + APP_VERSION;
   $('ver-btn').onclick = async () => {
     $('ver-btn').textContent = 'Checking…';
