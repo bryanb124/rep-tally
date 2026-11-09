@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self'; manifest-src 'self'; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -202,6 +202,8 @@
   .bk .primary { background: var(--text); color: var(--bg); }
   #bk-status { font-size: 13px; color: var(--dim); text-align: center; flex: none; }
   #bk-status.warn { color: var(--amber); }
+  #ver { font-size: 12px; color: var(--dim); text-align: center; flex: none; }
+  #ver-btn { background: none; padding: 4px 2px; font-size: 12px; font-weight: 700; color: var(--text); text-decoration: underline; }
   .empty { color: var(--dim); padding: 6px 0; font-size: 15px; }
 
   #toast { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 10px); transform: translateX(-50%) translateY(-20px);
@@ -310,6 +312,7 @@
     </div>
     <div class="peek" id="peek2" style="top:60px"></div>
     <div id="bk-status"></div>
+    <div id="ver"><span id="ver-txt"></span> · <button id="ver-btn">Check for update</button></div>
     <div class="bk"><button class="primary" id="bk-save">Back up to iCloud</button><button id="bk-load">Restore</button></div>
     <input type="file" id="bk-file" accept="application/json,.json" hidden>
   </dialog>
@@ -1213,7 +1216,23 @@
   render();
 
   // Offline: keep a copy of the app on the phone so it opens without signal.
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {});
+
+  // Version shown on the More page; "Check for update" fetches the latest page and reloads if it changed.
+  const APP_VERSION = '2026.11.09';
+  $('ver-txt').textContent = 'Version ' + APP_VERSION;
+  $('ver-btn').onclick = async () => {
+    $('ver-btn').textContent = 'Checking…';
+    try {
+      const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : null;
+      if (reg) await reg.update().catch(() => {});
+      const html = await fetch('./?v=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : Promise.reject());
+      const m = html.match(/APP_VERSION = '([^']+)'/);
+      if (m && m[1] !== APP_VERSION) { toast('Updating to ' + m[1] + '…'); setTimeout(() => location.reload(), 600); }
+      else toast("You're on the latest version");
+    } catch { toast("Couldn't check — no connection?"); }
+    $('ver-btn').textContent = 'Check for update';
+  };
 })();
 </script>
 </body>
