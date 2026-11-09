@@ -1,6 +1,6 @@
 {
-  "name": "Reps",
-  "short_name": "Reps",
+  "name": "Reps&Sets",
+  "short_name": "Reps&Sets",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

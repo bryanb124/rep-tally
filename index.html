@@ -8,16 +8,16 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Reps">
+<meta name="apple-mobile-web-app-title" content="Reps&amp;Sets">
 <meta name="theme-color" content="#111418">
-<meta name="app-version" content="2026.11.10">
-<!-- APP_VERSION = '2026.11.10' (older copies of the app look for this line when checking for updates) -->
+<meta name="app-version" content="2026.11.10.2">
+<!-- APP_VERSION = '2026.11.10.2' (older copies of the app look for this line when checking for updates) -->
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-180.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="app.css?v=2026.11.10">
-<script src="app.js?v=2026.11.10" defer></script>
-<title>Reps</title>
+<link rel="stylesheet" href="app.css?v=2026.11.10.2">
+<script src="app.js?v=2026.11.10.2" defer></script>
+<title>Reps&amp;Sets</title>
 </head>
 <body>
   <header>
@@ -45,7 +45,7 @@
         <div id="ev-list"></div>
         <div class="addrow"><button id="ev-add">+ Reps event</button><button id="ev-add-min">+ Minutes event</button></div>
         <div id="ev-arch" hidden></div>
-        <p class="hint">Reps events count reps; minutes events are for cardio or sports. Tap a name to rename it. ▲▼ change the order. "Max" is the most you want to do in one set. Up to 9 events. Removing an event keeps its history unless you choose to erase it.</p>
+        <p class="hint">Reps events count reps; minutes events are for cardio or sports. Tap a name to rename it, or the emoji to change it. ▲▼ change the order. "Max" is the most you want to do in one set. Up to 9 events. Removing an event keeps its history unless you choose to erase it.</p>
       </div>
     </div>
     <div id="bk-status"></div>
@@ -91,6 +91,12 @@
     <div class="dtitle" id="ed-title"></div>
     <div class="erows" id="ed-rows"></div>
     <div class="btn2"><button id="ed-cancel">Cancel</button><button class="ok" id="ed-save">Save</button></div>
+  </dialog>
+
+  <dialog id="icdlg">
+    <div class="dtitle" id="ic-title"></div>
+    <div id="ic-grid"></div>
+    <div class="btn2"><button id="ic-auto">Pick for me</button><button id="ic-cancel">Cancel</button></div>
   </dialog>
 
   <dialog id="dlg">

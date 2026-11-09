@@ -55,7 +55,9 @@ header h1 { font-size: 15px; font-weight: 600; color: var(--dim); margin: 0; let
 .ex { background: var(--card); border-radius: var(--ex-r); padding: var(--ex-pad); display: flex; flex-direction: column; gap: var(--ex-gap); flex: var(--ex-flex); }
 .top { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
 .lhs { display: flex; flex-direction: column; align-items: flex-start; gap: var(--lhs-gap); min-width: 0; padding-bottom: 1px; }
-.nm { font-size: var(--nm); font-weight: 750; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.title { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
+.ic { font-size: calc(var(--nm) * .9); line-height: 1; flex: none; }
+.nm { font-size: var(--nm); font-weight: 750; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .setline { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .sets { background: none; padding: 0; font-size: var(--sets); font-weight: 600; color: var(--dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .sets:empty { display: none; }
@@ -81,10 +83,23 @@ header h1 { font-size: 15px; font-weight: 600; color: var(--dim); margin: 0; let
 .add.minus { background: transparent; color: var(--text); border: 2px solid var(--line); }
 .add.minus:disabled { opacity: .3; }
 
+/* "raise your goal?" banner at the top of the cards */
+.suggest { flex: none; background: var(--card); border: 1.5px solid var(--amber); border-radius: var(--ex-r); padding: 8px 8px 8px 12px;
+  display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 1.3; color: var(--dim); }
+.suggest[hidden] { display: none; }
+.suggest b { color: var(--text); }
+.sg-msg { flex: 1; min-width: 0; }
+.sg-yes { flex: none; border-radius: 999px; padding: 8px 12px; font-size: 14px; font-weight: 700; background: var(--amber); color: #111; white-space: nowrap; }
+.sg-no { flex: none; width: 32px; height: 32px; border-radius: 999px; font-size: 14px; color: var(--dim); background: var(--line); padding: 0; }
+
 /* ---- calendar ---- */
 #history { position: relative; flex: 0 1 auto; min-height: 0; overflow: hidden; background: var(--card); border-radius: 20px; padding: 8px 14px 10px;
   display: flex; flex-direction: column; gap: 6px; }
 body.compact #history { flex: none; }
+@media (max-height: 720px) {         /* short screens: while a suggestion shows, cards scroll instead of squeezing the calendar */
+  body.has-sg { --ev-flex: 1 1 auto; }
+  body.has-sg #history { flex: none; }
+}
 .hhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; flex: none; }
 .hhead h2 { font-size: 13px; color: var(--dim); font-weight: 600; margin: 0; text-transform: uppercase; letter-spacing: .06em; }
 .hhead.has-cap h2 { display: none; }
@@ -207,6 +222,12 @@ dialog::backdrop { background: rgba(0,0,0,.6); }
 #edlg .er input.changed { border-color: var(--amber); }
 #edlg .er .u { width: 26px; font-size: 12px; color: var(--dim); flex: none; }
 
+/* emoji picker */
+#icdlg { width: min(94vw, 360px); }
+#ic-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; margin: 12px 0 14px; }
+#ic-grid button { aspect-ratio: 1; border-radius: 10px; background: var(--bg); font-size: 22px; line-height: 1; padding: 0; border: 2px solid transparent; }
+#ic-grid button.on { border-color: var(--text); }
+
 /* remove-event dialog */
 #deldlg p { color: var(--dim); font-size: 15px; margin: 8px 0 14px; line-height: 1.35; }
 #deldlg .col { display: flex; flex-direction: column; gap: 8px; }
@@ -227,6 +248,7 @@ dialog::backdrop { background: rgba(0,0,0,.6); }
 .evedit { background: var(--bg); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
 .evrow { display: flex; align-items: center; gap: 8px; }
 .evrow .dot { width: 14px; height: 14px; border-radius: 4px; flex: none; }
+.evrow .evicon { width: 40px; height: 40px; border-radius: 10px; background: var(--card); border: 2px solid var(--line); font-size: 20px; line-height: 1; flex: none; padding: 0; }
 .evrow input { font: inherit; font-size: 16px; color: var(--text); background: var(--card); border: 1px solid var(--line);
   border-radius: 10px; padding: 10px; min-width: 0; -webkit-user-select: text; user-select: text; }
 .evrow .evname { flex: 1; font-weight: 600; }
@@ -237,7 +259,7 @@ dialog::backdrop { background: rgba(0,0,0,.6); }
 .evrow .mv button { width: 30px; height: 19px; border-radius: 6px; background: var(--card); color: var(--text); font-size: 10px; line-height: 1; }
 .evrow .mv button:disabled { opacity: .25; }
 .evrow .evdel { width: 36px; height: 40px; border-radius: 10px; background: var(--card); color: var(--dim); font-size: 17px; flex: none; }
-#ev-list .evrow.evbtns { margin: -2px 0 10px 22px; gap: 6px; }
+#ev-list .evrow.evbtns { margin: -2px 0 10px 48px; gap: 6px; }
 .evbtns .bl { font-size: 12px; color: var(--dim); font-weight: 600; flex: none; }
 .evbtns .bl:first-child { width: 52px; }
 .evrow .evbtn { width: 0; flex: 1; max-width: 58px; padding: 7px 2px; text-align: center; font-size: 15px; font-weight: 700; }

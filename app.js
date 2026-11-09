@@ -50,7 +50,8 @@
       seen.add(e.id);
       out.push({ id: e.id, name, color: /^#[0-9a-f]{6}$/i.test(e.color) ? e.color : PALETTE[out.length % PALETTE.length],
         ...(e.unit === 'min' ? { unit: 'min' } : {}), ...(archived ? { archived: true } : {}),
-        ...(Array.isArray(e.buttons) && e.buttons.length === 4 && e.buttons.every(x => okInt(x, 1, 1000)) ? { buttons: e.buttons.slice() } : {}) });
+        ...(Array.isArray(e.buttons) && e.buttons.length === 4 && e.buttons.every(x => okInt(x, 1, 1000)) ? { buttons: e.buttons.slice() } : {}),
+        ...(typeof e.icon === 'string' && /^[^\w\s<>&"']{1,16}$/u.test(e.icon) ? { icon: e.icon } : {}) });
       if (out.length === 40) break;
     }
     return active ? out : null;
@@ -102,6 +103,23 @@
   const nameOf = id => (evById(id) || { name: '?' }).name;
   const isMin = id => (evById(id) || {}).unit === 'min';   // minutes events (cardio, sports); others count reps
   const btnsOf = ev => ev.buttons || (ev.unit === 'min' ? [30, 15, 5, 1] : [20, 10, 5, 1]);
+  // An emoji for each event: the one picked on the More page, otherwise a guess from its name
+  const ICON_GUESSES = [
+    [/skip|jump|jack|rope|burpee/, '🤸'], [/bench|dead|curl|lift|weight|kettle|dumbbell|barbell|\bdips?\b/, '🏋️'],
+    [/push|press|chest|arm/, '💪'], [/pull|chin|climb|boulder/, '🧗'], [/squat|lunge|leg|calf|calves|step.?up/, '🦵'],
+    [/plank/, '🧱'], [/sit.?up|crunch|\babs?\b|core/, '🔥'], [/rowing|\berg\b/, '🚣'], [/run|jog|sprint/, '🏃'],
+    [/hike|hiking/, '🥾'], [/walk|steps/, '🚶'], [/bike|cycl|ride|spin|peloton/, '🚴'], [/swim/, '🏊'], [/hockey/, '🏒'],
+    [/basketball|hoops/, '🏀'], [/soccer|futbol/, '⚽'], [/football/, '🏈'], [/baseball|softball/, '⚾'],
+    [/pickle|ping.?pong|table tennis/, '🏓'], [/tennis/, '🎾'], [/volleyball/, '🏐'], [/golf/, '⛳'], [/skat/, '⛸️'], [/\bski/, '⛷️'],
+    [/yoga|stretch|pilates|mobility/, '🧘'], [/box|punch|kick|martial/, '🥊'], [/danc|zumba/, '💃'], [/cardio|elliptical|stair/, '❤️'],
+  ];
+  const ICON_CHOICES = ['💪', '🦵', '🏋️', '🤸', '🔥', '🧱', '🧗', '🧘', '🏃', '🚶', '🥾', '🚴', '🏊', '🚣', '🥊', '💃',
+                        '🏒', '🏀', '⚽', '🏈', '⚾', '🎾', '🏓', '🏐', '⛳', '⛷️', '⛸️', '❤️', '⏱️', '🎯', '🦶', '⭐'];
+  function iconOf(ev) {
+    if (ev.icon) return ev.icon;
+    const n = ev.name.toLowerCase(), hit = ICON_GUESSES.find(([re]) => re.test(n));
+    return hit ? hit[1] : ev.unit === 'min' ? '⏱️' : '💪';
+  }
   const amount = (id, n) => isMin(id) ? `${n} min` : String(n);
   function fmtMinutes(m) {
     if (Math.abs(m) < 60) return m + ' min';
@@ -259,14 +277,15 @@
   // =============================== main screen ===============================
   function buildCards() {
     const wrap = $('events');
-    wrap.textContent = '';
+    wrap.replaceChildren(suggestBox);
     document.body.classList.toggle('compact', events.length >= 3);
     for (const ev of events) {
       const sec = el('section', 'ex' + (ev.unit === 'min' ? ' mins' : '')); sec.dataset.ex = ev.id; sec.style.setProperty('--c', ev.color);
       const sets = el('button', 'sets'); sets.setAttribute('aria-label', 'Sets; tap to change max per set');
       const done = el('button', 'doneset'); done.hidden = true;
       const sl = el('div', 'setline'); sl.append(sets, done);
-      const lhs = el('div', 'lhs'); lhs.append(el('span', 'nm', ev.name), sl);
+      const title = el('div', 'title'); title.append(el('span', 'ic', iconOf(ev)), el('span', 'nm', ev.name));
+      const lhs = el('div', 'lhs'); lhs.append(title, sl);
       const cnt = el('span', 'cnt'); cnt.append(el('span', 'total', '0'), el('span', 'unit', 'today'));
       const goal = el('button', 'goal'); goal.setAttribute('aria-label', 'Set daily goal'); goal.append(cnt, el('span', 'alltime'));
       const top = el('div', 'top'); top.append(lhs, goal);
@@ -280,8 +299,8 @@
     $('legend-txt').textContent = events.length === 2 ? `Top: ${events[0].name} · Bottom: ${events[1].name}` : events.length > 2 ? 'Boxes follow event order' : '';
   }
   $('events').addEventListener('click', e => {
-    const b = e.target.closest('button'); if (!b) return;
-    const id = b.closest('.ex').dataset.ex, c = b.classList;
+    const b = e.target.closest('button'), sec = b && b.closest('.ex'); if (!sec) return;   // (the suggestion banner handles its own buttons)
+    const id = sec.dataset.ex, c = b.classList;
     if (c.contains('add')) add(id, parseInt(b.dataset.n, 10));
     else if (c.contains('doneset')) add(id, parseInt(b.dataset.n, 10), true);
     else if (c.contains('goal')) openGoal(id);
@@ -334,6 +353,7 @@
     undoBtn.textContent = canUndo ? `↶ ${last.n > 0 ? '+' : '−'}${Math.abs(last.n)}` : '↶ Undo';
     undoBtn.setAttribute('aria-label', canUndo ? `Undo ${last.n} ${nameOf(last.ex)}` : 'Undo');
     snapshotToday();
+    renderSuggestion(today);
     renderStreak(today);
     renderNudge();
     const g30 = $('grid30');
@@ -611,8 +631,8 @@
     const list = $('ev-list');
     list.textContent = '';
     for (const [i, ev] of events.entries()) {
-      const row = el('div', 'evrow'), dot = el('span', 'dot'), name = el('input', 'evname');
-      row.dataset.ex = ev.id; dot.style.background = ev.color;
+      const row = el('div', 'evrow'), icon = el('button', 'evicon', iconOf(ev)), name = el('input', 'evname');
+      row.dataset.ex = ev.id; icon.style.borderColor = ev.color; icon.setAttribute('aria-label', `Change emoji for ${ev.name}`);
       name.type = 'text'; name.maxLength = 20; name.value = ev.name; name.setAttribute('aria-label', 'Event name'); name.autocapitalize = 'words';
       const lab = ev.unit === 'min' ? el('span', 'mintag', 'minutes') : el('label', null, 'Max');
       if (ev.unit !== 'min') { const max = el('input', 'evmax'); max.type = 'number'; max.inputMode = 'numeric'; max.min = 1; max.max = 1000; max.value = maxSet[ev.id]; lab.append(max); }
@@ -621,7 +641,7 @@
       up.disabled = i === 0; down.disabled = i === events.length - 1;
       mv.append(up, down);
       const del = el('button', 'evdel', '✕'); del.setAttribute('aria-label', 'Remove ' + ev.name);
-      row.append(dot, name, lab, mv, del);
+      row.append(icon, name, lab, mv, del);
       const br = el('div', 'evrow evbtns'); br.dataset.ex = ev.id;
       br.append(el('span', 'bl', 'Buttons'), ...btnsOf(ev).map((v, k) => {
         const inp = el('input', 'evbtn'); inp.type = 'number'; inp.inputMode = 'numeric'; inp.min = 1; inp.max = 1000;
@@ -702,6 +722,7 @@
   $('ev-list').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     const id = b.closest('.evrow').dataset.ex, ev = evById(id); if (!ev) return;
+    if (b.classList.contains('evicon')) return openIcons(id);
     if (b.classList.contains('up')) return moveEvent(id, -1);
     if (b.classList.contains('down')) return moveEvent(id, 1);
     if (!b.classList.contains('evdel')) return;
@@ -818,6 +839,76 @@
     refreshAll(); toast(`Added ${plural(days.length, 'day')} to history`);
     checkMilestones(true);
   }
+
+  // =============================== "raise your goal?" suggestions ===============================
+  // If an event beat its goal by 20%+ on each of the last 5 days (weekly goals: the last 3 full weeks), suggest the lowest of
+  // those totals as the new goal, rounded down to a multiple of 5. "Not now" hides it for a week. Capped goals are left alone.
+  const SUGKEY = 'rep-tally-suggest-v1';
+  let snoozed = (() => { const v = read(SUGKEY, {}); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; })();
+  const suggestBox = el('div', 'suggest'); suggestBox.hidden = true;
+  let suggested = null;
+  function findSuggestion(today) {
+    for (const ev of events) {
+      const g = goals[ev.id], cur = goalFor(ev.id, today);
+      if (!g || g.cap || !cur || (okDay(snoozed[ev.id]) && snoozed[ev.id] > today)) continue;
+      const weekly = g.per === 'week', totals = [];
+      for (let k = 1; k <= (weekly ? 3 : 5); k++) {
+        let tot, goal;
+        if (weekly) ({ sum: tot, goal } = weekTotal(ev.id, shiftDay(weekStart(today), -7 * k + 6), today));
+        else { const d = shiftDay(today, -k); tot = dayTotal(ev.id, d); goal = goalOn(ev.id, d); }
+        if (!goal || tot < goal * 1.2) break;
+        totals.push(tot);
+      }
+      if (totals.length < (weekly ? 3 : 5)) continue;
+      const low = Math.min(...totals), to = ev.unit === 'min' || low >= 20 ? Math.floor(low / 5) * 5 : low;
+      if (to > cur) return { ev, low, cur, to, weekly };
+    }
+    return null;
+  }
+  function renderSuggestion(today) {
+    suggested = findSuggestion(today);
+    suggestBox.hidden = !suggested;
+    document.body.classList.toggle('has-sg', !!suggested);   // cards scroll instead of squeezing the calendar
+    if (!suggested) return;
+    const { ev, low, cur, to, weekly } = suggested, u = ev.unit === 'min' ? ' min' : '';
+    const msg = el('div', 'sg-msg');
+    msg.append(el('b', null, `${iconOf(ev)} ${ev.name}: `), weekly
+      ? `${low}+${u} each of the last 3 weeks. Raise this week's goal ${cur} → ${to}?`
+      : `${low}+${u} every day for 5 days. Raise today's goal ${cur} → ${to}?`);
+    const yes = el('button', 'sg-yes', `Raise to ${to}`), no = el('button', 'sg-no', '✕');
+    no.setAttribute('aria-label', 'Not now');
+    suggestBox.replaceChildren(msg, yes, no);
+  }
+  suggestBox.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || !suggested) return;
+    const { ev, to } = suggested, today = dayKey();
+    if (b.classList.contains('sg-yes')) {                  // keep how the goal grows; start it again from the new number today
+      goals[ev.id] = { ...goals[ev.id], d: today, n: to }; save('goals');
+      delete snoozed[ev.id]; write(SUGKEY, snoozed);
+      render(); toast(`${ev.name} goal raised to ${amount(ev.id, to)}`);
+    } else if (b.classList.contains('sg-no')) {
+      snoozed[ev.id] = shiftDay(today, 7); write(SUGKEY, snoozed);
+      render(); toast(`OK, I'll ask again in a week`);
+    }
+  });
+
+  // =============================== emoji picker ===============================
+  let iconEx = null;
+  function openIcons(id) {
+    iconEx = id;
+    const ev = evById(id);
+    $('ic-title').textContent = `Emoji for ${ev.name}`;
+    $('ic-grid').replaceChildren(...ICON_CHOICES.map(c => {
+      const b = el('button', c === iconOf(ev) ? 'on' : null, c); b.dataset.ic = c; return b;
+    }));
+    $('icdlg').showModal();
+  }
+  $('ic-grid').addEventListener('click', e => {
+    const b = e.target.closest('button'), ev = evById(iconEx); if (!b || !ev) return;
+    ev.icon = b.dataset.ic; save('events'); $('icdlg').close(); refreshAll();
+  });
+  $('ic-auto').onclick = () => { const ev = evById(iconEx); if (ev) { delete ev.icon; save('events'); refreshAll(); } $('icdlg').close(); };
+  $('ic-cancel').onclick = () => $('icdlg').close();
 
   // =============================== max-per-set dialog ===============================
   let maxEx = null;

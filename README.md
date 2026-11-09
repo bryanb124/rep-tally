@@ -1,4 +1,4 @@
-# Reps
+# Reps&Sets
 
 A one-screen workout tally for my phone: pushups, squats, cardio minutes, whatever I track.
 
