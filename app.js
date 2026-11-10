@@ -339,7 +339,8 @@
     if (g) {
       const pct = n / g;
       sec.classList.add('has-goal', pct >= 1 ? 'hit' : pct >= 0.5 ? 'mid' : 'lo');
-      unit.textContent = `/ ${g}${mins ? ' min' : ''}${weekly ? '/wk' : ''}` + (pct >= 1 ? ' ✓' : '');
+      // the goal number is as big as the count; the extras (min, /wk, ✓) stay small
+      unit.replaceChildren(el('span', 'gnum', `/ ${g}`), `${mins ? ' min' : ''}${weekly ? '/wk' : ''}` + (pct >= 1 ? ' ✓' : ''));
       sec.querySelector('.bar i').style.width = Math.min(100, pct * 100) + '%';
     } else unit.textContent = mins ? 'min today' : 'today';
   }

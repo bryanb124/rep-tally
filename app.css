@@ -68,6 +68,7 @@ header h1 { font-size: 15px; font-weight: 600; color: var(--dim); margin: 0; let
 .cnt { display: flex; align-items: baseline; justify-content: flex-end; }
 .total { font-size: var(--total); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; transition: color .3s; }
 .unit { font-size: var(--unit); color: var(--dim); margin-left: 4px; }
+.gnum { font-size: var(--total); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
 .alltime { display: block; font-size: var(--at); font-weight: 600; color: var(--dim); opacity: .75; margin-top: var(--at-mt); font-variant-numeric: tabular-nums; }
 .lo .total { color: var(--red); } .mid .total { color: var(--amber); } .hit .total { color: var(--green); }
 .bar { height: var(--bar); border-radius: 3px; background: var(--line); overflow: hidden; display: none; }
