@@ -40,6 +40,10 @@
     <div id="more-scroll">
       <div><h3>History <span class="hsub">· tap a day to edit</span></h3><div id="more-list"></div>
         <button id="more-earlier">Show earlier month</button></div>
+      <div class="evedit restset">
+        <label class="restrow"><span>💤 Rest days: 1 every</span><input id="rest-every" type="number" inputmode="numeric" pattern="[0-9]*" min="2" max="60"><span>days</span></label>
+        <p class="hint">A rest day keeps your streak going without adding to it. Mark one by tapping a day in History above.</p>
+      </div>
       <div class="evedit">
         <h3>Events</h3>
         <div id="ev-list"></div>
@@ -89,6 +93,8 @@
 
   <dialog id="edlg">
     <div class="dtitle" id="ed-title"></div>
+    <button id="ed-rest" aria-pressed="false"></button>
+    <div id="ed-rest-note"></div>
     <div class="erows" id="ed-rows"></div>
     <div class="btn2"><button id="ed-cancel">Cancel</button><button class="ok" id="ed-save">Save</button></div>
   </dialog>

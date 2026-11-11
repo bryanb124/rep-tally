@@ -230,6 +230,18 @@ dialog::backdrop { background: rgba(0,0,0,.6); }
 #ic-grid button { aspect-ratio: 1; border-radius: 10px; background: var(--bg); font-size: 22px; line-height: 1; padding: 0; border: 2px solid transparent; }
 #ic-grid button.on { border-color: var(--text); }
 
+/* rest days */
+#ed-rest { width: 100%; margin-top: 12px; min-height: 44px; border-radius: 12px; font-size: 15px; font-weight: 700; background: var(--bg); border: 1.5px dashed var(--line); color: var(--dim); }
+#ed-rest[aria-pressed="true"] { background: var(--line); border-style: solid; border-color: var(--text); color: var(--text); }
+#ed-rest:disabled { opacity: .45; }
+#ed-rest-note { font-size: 12px; color: var(--amber); margin-top: 6px; }
+#ed-rest-note:empty { display: none; }
+.day .zz { position: absolute; top: 1px; right: 2px; font-size: 10px; line-height: 1; pointer-events: none; }
+.peek .rest-note { color: var(--dim); font-size: 14px; }
+.restrow { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; }
+.restrow input { width: 56px; font: inherit; font-size: 16px; font-weight: 700; text-align: center; color: var(--text); background: var(--card);
+  border: 1px solid var(--line); border-radius: 10px; padding: 8px 4px; -webkit-user-select: text; user-select: text; }
+
 /* remove-event dialog */
 #deldlg p { color: var(--dim); font-size: 15px; margin: 8px 0 14px; line-height: 1.35; }
 #deldlg .col { display: flex; flex-direction: column; gap: 8px; }

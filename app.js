@@ -24,10 +24,10 @@
 
   // =============================== storage: keys and formats never change, so old data and backups keep working ===============================
   const K = { events: 'rep-tally-events-v1', log: 'rep-tally-v1', max: 'rep-tally-maxset-v1', goals: 'rep-tally-goals-v1',
-              dayGoals: 'rep-tally-daygoals-v1', records: 'rep-tally-records-v1', backup: 'rep-tally-lastbackup-v1' };
+              dayGoals: 'rep-tally-daygoals-v1', records: 'rep-tally-records-v1', backup: 'rep-tally-lastbackup-v1', rest: 'rep-tally-rest-v1' };
   const read = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
   const write = (key, v) => { try { localStorage.setItem(key, JSON.stringify(v)); } catch {} };
-  const save = (...what) => { for (const w of what) write(K[w], { events: allEvents, log, max: maxSet, goals, dayGoals }[w]); };
+  const save = (...what) => { for (const w of what) write(K[w], { events: allEvents, log, max: maxSet, goals, dayGoals, rest }[w]); };
 
   const MAX_EVENTS = 9;
   const PALETTE = ['#ff7a45', '#3ec7a0', '#5b9dff', '#c084fc', '#f472b6', '#facc15', '#22d3ee', '#a3e635', '#fb923c'];
@@ -87,6 +87,13 @@
     return out;
   }
 
+  // Rest days: whole days that bridge the streak. At most one in any `every` consecutive days.
+  function cleanRest(v, every = 7) {
+    const ok = v && typeof v === 'object';
+    return { every: ok && okInt(v.every, 2, 60) ? v.every : every,
+             days: ok && Array.isArray(v.days) ? [...new Set(v.days.filter(okDay))].sort() : [] };
+  }
+
   // =============================== state ===============================
   let allEvents = cleanEvents(read(K.events, null)) || DEFAULT_EVENTS();
   let events = [];                                         // the active (not removed) events, in order
@@ -96,6 +103,10 @@
   let maxSet = cleanMax(read(K.max, {}), allEvents);
   let goals = cleanGoals(read(K.goals, {}), allEvents);
   let dayGoals = cleanDayGoals(read(K.dayGoals, {}));
+  let rest = cleanRest(read(K.rest, null));
+  const isRest = d => rest.days.includes(d);
+  // The rest day that's too close to d (fewer than `every` days apart), if any
+  const restConflict = d => rest.days.find(r => r !== d && Math.abs(daysBetween(r, d)) < rest.every) || null;
   save('events');
 
   const evById = id => allEvents.find(e => e.id === id);
@@ -190,7 +201,7 @@
         let w = weekStart(start); if (w < start) w = shiftDay(w, 7);
         for (; shiftDay(w, 6) < b; w = shiftDay(w, 7)) if (weekSum(id, shiftDay(w, 6), tot) < v) { ok = false; break; }
       } else {
-        for (let d = start; d < b; d = shiftDay(d, 1)) if ((tot[d] || 0) < v) { ok = false; break; }
+        for (let d = start; d < b; d = shiftDay(d, 1)) if ((tot[d] || 0) < v && !isRest(d)) { ok = false; break; }
       }
       if (ok) v = capIt(v + g.step);
       start = b;
@@ -377,6 +388,7 @@
   // =============================== streaks ===============================
   // A day counts if every event with a daily goal that day reached it (days with no goals count if anything was logged).
   // Weekly goals don't make or break a day. Today joins the streak only once it's done.
+  // A rest day that wasn't done bridges the streak: it doesn't break it and doesn't add to it.
   function dayDone(d, today) {
     const v = byDay[d] || {};
     const withGoal = (d === today ? events.map(e => [e.id, goalFor(e.id, d)]) : allEvents.map(e => [e.id, goalOn(e.id, d)]))
@@ -388,7 +400,10 @@
   function renderStreak(today) {
     const todayDone = dayDone(today, today);
     let n = todayDone ? 1 : 0;
-    if (firstDay) for (let d = shiftDay(today, -1); d >= firstDay && dayDone(d, today); d = shiftDay(d, -1)) n++;
+    if (firstDay) for (let d = shiftDay(today, -1); d >= firstDay; d = shiftDay(d, -1)) {
+      if (dayDone(d, today)) n++;
+      else if (!isRest(d)) break;
+    }
     streakInfo = { n, todayDone };
     $('streak').textContent = '🔥 ' + n;
     $('streak').classList.toggle('zero', n === 0);
@@ -397,7 +412,7 @@
     let best = 0, run = 0;
     if (firstDay) for (let d = firstDay; d <= today; d = shiftDay(d, 1)) {
       if (dayDone(d, today)) best = Math.max(best, ++run);
-      else if (d !== today) run = 0;
+      else if (d !== today && !isRest(d)) run = 0;
     }
     return best;
   }
@@ -451,7 +466,8 @@
       else b.append(stripe(ev, n, goalOn(ev.id, d)));
     }
     b.append(el('span', 'dn', Number(d.slice(8))));
-    b.setAttribute('aria-label', pretty(d) + ': ' + events.map(ev => `${v[ev.id] || 0} ${ev.name}`).join(', '));
+    if (isRest(d)) { b.classList.add('rest'); b.append(el('span', 'zz', '💤')); }
+    b.setAttribute('aria-label', pretty(d) + ': ' + events.map(ev => `${v[ev.id] || 0} ${ev.name}`).join(', ') + (isRest(d) ? ', rest day' : ''));
     return b;
   }
 
@@ -475,6 +491,7 @@
       const cap = $('caption');
       cap.append(el('b', null, pretty(d)));
       for (const ev of list) cap.append(' · ' + ev.name + ' ', el('span', 'k', v[ev.id] || 0));
+      if (isRest(d)) cap.append(' · 💤 rest day');
       cap.parentElement.classList.add('has-cap');
     } else {                                               // longer: a pop-up list
       const pk = $('peek'), rows = el('div', 'rows');
@@ -490,6 +507,7 @@
         else if (g && !w) em.append(el('small', null, ' / ' + g));
         r.append(dot, el('span', null, ev.name), em); rows.append(r);
       }
+      if (isRest(d)) rows.append(el('div', 'pr rest-note', '💤 Rest day'));
       pk.classList.add('show');
     }
     showTimer = setTimeout(hideReveal, events.length <= 2 ? 3500 : 5000);
@@ -574,16 +592,32 @@
     }
   }
   $('more-earlier').onclick = () => { extraMonths++; renderMore(); };
+  $('rest-every').addEventListener('change', e => {
+    const n = parseInt(e.target.value, 10);
+    if (!okInt(n, 2, 60)) { e.target.value = rest.every; return; }
+    rest.every = n; save('rest'); toast(`1 rest day every ${n} days`);
+  });
+  $('rest-every').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
   $('more-list').addEventListener('click', e => { const sq = e.target.closest('.day'); if (sq && !sq.classList.contains('future')) openDayEditor(sq.dataset.d); });
-  $('more-btn').onclick = () => { extraMonths = 0; renderEditor(); renderMore(); bkStatus(); $('more').showModal(); $('more-scroll').scrollTop = 0; };
+  $('more-btn').onclick = () => { extraMonths = 0; $('rest-every').value = rest.every; renderEditor(); renderMore(); bkStatus(); $('more').showModal(); $('more-scroll').scrollTop = 0; };
   $('more-close').onclick = () => { hideReveal(); $('more').close(); };
 
-  // =============================== day editor: set any day's totals ===============================
-  let edDay = null;
+  // =============================== day editor: set any day's totals, or mark it a rest day ===============================
+  let edDay = null, edRest = false;
+  function renderRestToggle() {
+    const b = $('ed-rest'), note = $('ed-rest-note'), clash = !edRest && restConflict(edDay);
+    b.setAttribute('aria-pressed', String(edRest));
+    b.textContent = edRest ? '💤 Rest day ✓' : '💤 Mark as rest day';
+    b.disabled = !!clash;
+    note.textContent = clash ? `You can have 1 rest day every ${rest.every} days, and ${pretty(clash)} is one.` : '';
+  }
+  $('ed-rest').onclick = () => { edRest = !edRest; renderRestToggle(); };
   function openDayEditor(d) {
     if (d > dayKey()) return;
     edDay = d;
     $('ed-title').textContent = pretty(d) + (d === dayKey() ? ' (today)' : '');
+    edRest = isRest(d);
+    renderRestToggle();
     $('ed-rows').replaceChildren(...allEvents.filter(e => !e.archived || dayTotal(e.id, d) > 0).map(ev => {
       const r = el('div', 'er'), dot = el('i'), nm = el('span', 'en', ev.name);
       r.dataset.ex = ev.id; dot.style.background = ev.color;
@@ -617,6 +651,11 @@
       changed++;
       if (d === today) log.push({ d, ex: id, n: v - cur, t: now });        // today: an adjustment, so Undo can take it back
       else { log = log.filter(e => !(e.ex === id && e.d === d)); if (v > 0) log.push({ d, ex: id, n: v, t: 0 }); }
+    }
+    if (edRest !== isRest(d) && (!edRest || !restConflict(d))) {
+      changed++;
+      rest.days = edRest ? [...rest.days, d].sort() : rest.days.filter(x => x !== d);
+      save('rest');
     }
     $('edlg').close();
     if (!changed) return;
@@ -774,7 +813,7 @@
   }
   const renderNudge = () => { $('bk-nudge').hidden = !(log.length && backupAge() >= 7); };
   async function doBackup() {
-    const data = { app: 'rep-tally', v: 2, saved: new Date().toISOString(), events: allEvents, log, goals, dayGoals, maxSet };
+    const data = { app: 'rep-tally', v: 2, saved: new Date().toISOString(), events: allEvents, log, goals, dayGoals, maxSet, rest };
     const file = new File([JSON.stringify(data)], `rep-tally-backup-${dayKey()}.json`, { type: 'application/json' });
     if (await shareFile(file, 'Backed up', 'Backup failed')) {
       try { localStorage.setItem(K.backup, String(Date.now())); } catch {}
@@ -786,8 +825,10 @@
   $('csv-btn').onclick = () => {
     const cols = allEvents.filter(e => allTime[e.id] !== undefined);
     const q = v => /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
-    const lines = [['Date', ...cols.map(e => e.name + (e.unit === 'min' ? ' (min)' : ''))].map(q).join(',')];
-    for (const d of Object.keys(byDay).sort()) if (cols.some(e => byDay[d][e.id])) lines.push([d, ...cols.map(e => byDay[d][e.id] || 0)].join(','));
+    const withRest = rest.days.length > 0;                 // a "Rest day" column only once there are rest days
+    const lines = [['Date', ...cols.map(e => e.name + (e.unit === 'min' ? ' (min)' : '')), ...(withRest ? ['Rest day'] : [])].map(q).join(',')];
+    const days = [...new Set([...Object.keys(byDay).filter(d => cols.some(e => byDay[d][e.id])), ...rest.days])].sort();
+    for (const d of days) lines.push([d, ...cols.map(e => (byDay[d] || {})[e.id] || 0), ...(withRest ? [isRest(d) ? 'yes' : ''] : [])].join(','));
     shareFile(new File([lines.join('\n') + '\n'], `rep-tally-${dayKey()}.csv`, { type: 'text/csv' }), 'Spreadsheet exported', 'Export failed');
   };
   $('bk-load').onclick = () => $('bk-file').click();
@@ -807,6 +848,7 @@
     if (!confirm(msg)) return;
     allEvents = newEvents; syncEvents(); log = newLog;
     goals = cleanGoals(data.goals, allEvents); maxSet = cleanMax(data.maxSet, allEvents); dayGoals = cleanDayGoals(data.dayGoals);
+    if (data.rest || rest.days.length) { rest = cleanRest(data.rest, rest.every); save('rest'); }   // older backups have no rest days
     save('events', 'log', 'goals', 'max', 'dayGoals');
     refreshAll(); toast('Restored');
     checkMilestones(true);
@@ -854,10 +896,10 @@
       const g = goals[ev.id], cur = goalFor(ev.id, today);
       if (!g || g.cap || !cur || (okDay(snoozed[ev.id]) && snoozed[ev.id] > today)) continue;
       const weekly = g.per === 'week', totals = [];
-      for (let k = 1; k <= (weekly ? 3 : 5); k++) {
+      for (let k = 1, back = 0; totals.length < (weekly ? 3 : 5) && back < 14; k++) {
         let tot, goal;
         if (weekly) ({ sum: tot, goal } = weekTotal(ev.id, shiftDay(weekStart(today), -7 * k + 6), today));
-        else { const d = shiftDay(today, -k); tot = dayTotal(ev.id, d); goal = goalOn(ev.id, d); }
+        else { const d = shiftDay(today, -++back); if (isRest(d)) { k--; continue; } tot = dayTotal(ev.id, d); goal = goalOn(ev.id, d); }
         if (!goal || tot < goal * 1.2) break;
         totals.push(tot);
       }
