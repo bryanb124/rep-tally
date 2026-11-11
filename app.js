@@ -190,12 +190,20 @@
   function goalValue(g, id, day) {
     if (!g) return 0;
     const capIt = v => g.cap ? Math.min(v, Math.max(g.cap, g.n)) : v;
-    if (!g.wait) return capIt(g.n + g.step * countBoundaries(g, day));
-    // "wait for me": a period earns its increase only if every day in it hit that day's goal
+    // A period made up only of rest days (with daily growth: the rest day itself) doesn't earn an increase
+    const allRest = (a, b) => { if (!rest.days.length || a >= b) return false; for (let d = a; d < b; d = shiftDay(d, 1)) if (!isRest(d)) return false; return true; };
+    if (!g.wait) {
+      if (!rest.days.length) return capIt(g.n + g.step * countBoundaries(g, day));
+      let n = 0, start = g.d;
+      for (const b of boundaries(g, day)) { if (!allRest(start, b)) n++; start = b; }
+      return capIt(g.n + g.step * n);
+    }
+    // "wait for me": a period earns its increase only if every day in it hit that day's goal (rest days excused)
     // (weekly goals: every full Sun-Sat week inside it hit the weekly goal)
     const tot = totalsFor(id);
     let v = g.n, start = g.d;
     for (const b of boundaries(g, day)) {
+      if (allRest(start, b)) { start = b; continue; }
       let ok = true;
       if (g.per === 'week') {
         let w = weekStart(start); if (w < start) w = shiftDay(w, 7);
