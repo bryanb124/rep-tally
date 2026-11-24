@@ -10,13 +10,13 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Reps&amp;Sets">
 <meta name="theme-color" content="#111418">
-<meta name="app-version" content="2026.11.11.1">
-<!-- APP_VERSION = '2026.11.11.1' (older copies of the app look for this line when checking for updates) -->
+<meta name="app-version" content="2026.11.24.1">
+<!-- APP_VERSION = '2026.11.24.1' (older copies of the app look for this line when checking for updates) -->
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-180.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="app.css?v=2026.11.11.1">
-<script src="app.js?v=2026.11.11.1" defer></script>
+<link rel="stylesheet" href="app.css?v=2026.11.24.1">
+<script src="app.js?v=2026.11.24.1" defer></script>
 <title>Reps&amp;Sets</title>
 </head>
 <body>
@@ -41,8 +41,8 @@
       <div><h3>History <span class="hsub">· tap a day to edit</span></h3><div id="more-list"></div>
         <button id="more-earlier">Show earlier month</button></div>
       <div class="evedit restset">
-        <label class="restrow"><span>💤 Rest days: 1 every</span><input id="rest-every" type="number" inputmode="numeric" pattern="[0-9]*" min="2" max="60"><span>days</span></label>
-        <p class="hint">A rest day keeps your streak going without adding to it. Mark one by tapping a day in History above.</p>
+        <label class="restrow"><span>💤 Rest per activity: 1 every</span><input id="rest-every" type="number" inputmode="numeric" pattern="[0-9]*" min="2" max="60"><span>days</span></label>
+        <p class="hint">Rest and injury/sore days protect your streak for each activity. Recovery alone does not add to your streak. Injury/sore days have no limit. Tap Rest / injury on an activity or edit a day in History.</p>
       </div>
       <div class="evedit">
         <h3>Events</h3>
@@ -93,8 +93,7 @@
 
   <dialog id="edlg">
     <div class="dtitle" id="ed-title"></div>
-    <button id="ed-rest" aria-pressed="false"></button>
-    <div id="ed-rest-note"></div>
+    <p class="hint">Recover at your own pace. Rest and injury/sore days protect your streak without adding reps. Weekly targets stay unchanged.</p>
     <div class="erows" id="ed-rows"></div>
     <div class="btn2"><button id="ed-cancel">Cancel</button><button class="ok" id="ed-save">Save</button></div>
   </dialog>
