@@ -331,7 +331,9 @@
       for (const n of btnsOf(ev)) { const b = el('button', 'add', '+' + n); b.dataset.n = n; row.append(b); }
       const minus = el('button', 'add minus', '−1'); minus.dataset.n = -1; minus.setAttribute('aria-label', 'Minus 1'); row.append(minus);
       const recoveryBtn = el('button', 'recovery-btn', 'Rest / injury');
-      sec.append(top, bar, row, recoveryBtn);
+      recoveryBtn.setAttribute('aria-label', 'Rest / injury: ' + ev.name);
+      title.append(recoveryBtn);
+      sec.append(top, bar, row);
       wrap.append(sec);
     }
     $('legend-txt').textContent = events.length === 2 ? `Top: ${events[0].name} · Bottom: ${events[1].name}` : events.length > 2 ? 'Boxes follow event order' : '';
@@ -359,7 +361,7 @@
     doneBtn.hidden = true;
     const recovering = isRecovery(ev.id, today);
     sec.classList.toggle('recovering', recovering);
-    sec.querySelector('.recovery-btn').textContent = recovering ? recoveryLabel(recoveryFor(ev.id, today)) + ' · edit' : 'Rest / injury';
+    sec.querySelector('.recovery-btn').textContent = recovering ? recoveryLabel(recoveryFor(ev.id, today)) : 'Rest / injury';
     if (g && !mins && !weekly && !recovering) {
       // sets already done (what you actually did), then the rest of the goal re-planned
       const done = setsDone(ev.id, today), plan = splitSets(Math.max(0, g - n), maxSet[ev.id]);
