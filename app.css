@@ -20,7 +20,7 @@ body.compact {                       /* 3+ events: smaller cards so more fit */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Rounded", system-ui, sans-serif; }
-body { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden;
+body { display: flex; flex-direction: column; height: 100vh; height: var(--home-screen-height, 100dvh); overflow: hidden;
   padding: calc(env(safe-area-inset-top) + 10px) 14px calc(env(safe-area-inset-bottom) + 10px); gap: 10px;
   user-select: none; -webkit-user-select: none; }
 @media (max-height: 720px) {         /* shorter phones */

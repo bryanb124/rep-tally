@@ -420,8 +420,21 @@
     const e = $('events');
     e.classList.toggle('more-below', e.scrollHeight - e.scrollTop - e.clientHeight > 4);
   }
+  // In the full-screen iPhone app, Safari can report a shorter CSS viewport.
+  // The screen height includes both safe areas, which the body pads separately.
+  function sizeHomeScreen() {
+    const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+    if (/iPhone|iPod/.test(navigator.userAgent) && standalone && matchMedia('(orientation: portrait)').matches) {
+      document.body.style.setProperty('--home-screen-height', screen.height + 'px');
+    } else {
+      document.body.style.removeProperty('--home-screen-height');
+    }
+    requestAnimationFrame(updateFade);
+  }
+  sizeHomeScreen();
+  addEventListener('pageshow', sizeHomeScreen);
   $('events').addEventListener('scroll', updateFade, { passive: true });
-  addEventListener('resize', updateFade);
+  addEventListener('resize', sizeHomeScreen);
 
   // =============================== streaks ===============================
   // A day counts if every event with a daily goal that day reached it (days with no goals count if anything was logged).
