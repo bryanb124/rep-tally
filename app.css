@@ -231,11 +231,7 @@ dialog::backdrop { background: rgba(0,0,0,.6); }
 #ic-grid button.on { border-color: var(--text); }
 
 /* rest days */
-#ed-rest { width: 100%; margin-top: 12px; min-height: 44px; border-radius: 12px; font-size: 15px; font-weight: 700; background: var(--bg); border: 1.5px dashed var(--line); color: var(--dim); }
-#ed-rest[aria-pressed="true"] { background: var(--line); border-style: solid; border-color: var(--text); color: var(--text); }
-#ed-rest:disabled { opacity: .45; }
-#ed-rest-note { font-size: 12px; color: var(--amber); margin-top: 6px; }
-#ed-rest-note:empty { display: none; }
+
 .day .zz { position: absolute; top: 1px; right: 2px; font-size: 10px; line-height: 1; pointer-events: none; }
 .peek .rest-note { color: var(--dim); font-size: 14px; }
 .restrow { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; }
@@ -332,3 +328,13 @@ dialog::backdrop { background: rgba(0,0,0,.6); }
   #gdlg #g-n { font-size: 22px; padding: 6px 10px; }
   #g-preview { margin-top: 8px; min-height: 0; }
 }
+
+/* Per-activity recovery, accessible from today's card and history. */
+.recovery-btn { color: var(--dim); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-top: 6px; min-height: 36px; }
+.ex .row[hidden] { display: none; }
+.recovery-choice { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0; font-size: 13px; }
+.recovery-select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; max-width: 65%; }
+.recovery-group + .recovery-group { border-top: 1px solid var(--line); padding-top: 8px; }
+.day .recovery-cell { background: var(--line); color: var(--text); font-size: 12px; }
+
+.ex.recovering .total { color: var(--text); transition: none; }
